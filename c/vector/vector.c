@@ -37,9 +37,9 @@ void add(vector *v, int val) {
 		int *cp = realloc(v->data, (v->max * NVGROW) * sizeof(v->data[0]));
 		if (cp == NULL) return;
 		v->data = cp;
-
 		v->max *= NVGROW;
 	}
+
 	v->data[v->nval] = val;
 	v->nval++;
 }
@@ -52,6 +52,8 @@ void del_without_order(vector *v, int val) {
 		if (v->data[i] == val) {
 			v->data[i] = v->data[v->nval - 1];
 			v->nval--;	
+			int *cp = realloc(v->data, v->nval * sizeof(v->data[0]));
+			v->data = cp;	
 			return;
 		}
 	}
