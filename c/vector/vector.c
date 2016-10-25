@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 enum { NVINIT = 1, NVGROW = 2 };
 
@@ -10,6 +11,8 @@ struct vector {
 	int max;
 	int *data;
 };
+
+int len(vector *v);
 
 void print_vector(vector *v) {
 	if (v == NULL) return;
@@ -22,28 +25,23 @@ void print_vector(vector *v) {
 
 void add(vector *v, int val) {
 	if (v == NULL) return;
-
+	
 	if (v->data == NULL) {
 		// first element in the vector
 		// need to allocate memory for 1 element
-		v->data =  malloc(NVINIT * sizeof(int));
+		v->data =  malloc(NVINIT * sizeof(v->data[0]));
 		if (v->data == NULL) return;
-		v->nval++;
-		v->data[0] = val;
 		v->max = NVINIT;
 	} else if (v->nval >= v->max){
 		// grow the size of the vector
-		int *cp = realloc(v->data, (v->max * NVGROW) * sizeof(int));
+		int *cp = realloc(v->data, (v->max * NVGROW) * sizeof(v->data[0]));
 		if (cp == NULL) return;
 		v->data = cp;
 
 		v->max *= NVGROW;
-		v->data[v->nval] = val;
-		v->nval++;
-	} else {
-		v->data[v->nval] = val;
-		v->nval++;
 	}
+	v->data[v->nval] = val;
+	v->nval++;
 }
 
 void del_without_order(vector *v, int val) {
@@ -75,6 +73,37 @@ void del_with_order(vector *v, int val) {
 	}
 }
 
+bool is_valid_index(vector *v, int index) {
+	return index >= 0 && index < v->nval;
+}
+
+int get(vector *v, int index) {
+	if (v == NULL) return - 1;
+	if (!is_valid_index(v, index)) {
+		printf("invalid index\n");
+		return -1;
+	}
+	return v->data[index];
+}
+
+void set(vector *v, int val, int index) {
+	if (v == NULL) return;
+	if (v->data == NULL) {
+		printf("vector is empty\n");
+		return;
+	}
+	if (!is_valid_index(v, index)) {
+		printf("invalid index\n");
+		return;
+	}
+	v->data[index] = val;
+}
+
+int len(vector *v) {
+	if (v == NULL) return -1;
+	return v->nval;
+}
+
 vector v;
 
 int main() {
@@ -88,4 +117,6 @@ int main() {
 	del_with_order(&v, 1);
 	printf("after deletion\n");
 	print_vector(&v);
+
+	printf("elem with index 3 = %d\n", get(&v, 3));
 }
