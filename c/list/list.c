@@ -44,15 +44,43 @@ node *lookup(node *lp, int val) {
 	return NULL;
 }
 
-void print_list(node *lp) {
-	for (; lp != NULL; lp = lp->next) {
-		printf("val = %d\n", lp->val);
-	}
+node *delete(node *lp, int val) {
+	if (lp == NULL) return NULL;
+	node *p;
+	for (p = lp; p->next->val != val; p = p->next) 
+		;
+	
+	node *del = p->next;
+	free(p->next);
+	p->next = del->next;
+	return lp;
 }
 
 void map(node *lp, void (*fn) (node *, void *), void *arg) {
 	for (; lp != NULL; lp = lp->next) {
 		(*fn)(lp, arg);
+	}
+}
+
+void power2(node *n, void *arg) {
+	n->val *= n->val;
+}
+
+void printn(node *n, void *arg) {
+	printf((char *) arg, n->val);
+}
+
+void is_even(node *lp, void *arg) {
+	lp->val % 2 == 0 ? 
+		printf("val = %d is even\n", lp->val) : 
+		printf("val = %d is odd\n", lp->val);
+}
+
+void freeall(node *lp) {
+	node *next;
+	for (; lp != NULL; lp = next) {
+		next = lp->next;
+		free(lp);
 	}
 }
 
@@ -62,9 +90,17 @@ int main() {
 	hp = add_front(hp, new_node(200));
 	hp = add_front(hp, new_node(222));
 	hp = add_end(hp, new_node(1));
-	print_list(hp);
+
+	map(hp, power2, NULL);
+	map(hp, printn, "val = %d\n");	
+	map(hp, is_even, NULL);
 	
 	node *find;
 	find = lookup(hp, 222);
 	find == NULL ? printf("not found\n"): printf("found\n");
+	freeall(hp);
+	//printf("after deletion\n");
+	//hp = delete(hp, 1);
+	//hp = delete(hp, 100);
+	//map(hp, printn, "val = %d\n");
 }
