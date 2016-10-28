@@ -36,6 +36,7 @@ node *add_end(node *lp, node *np) {
 }
 
 node *lookup(node *lp, int val) {
+	printf("searching...%d\n", val);
 	for (; lp != NULL; lp = lp->next) {
 		if (lp->val == val) {
 			return lp;	
@@ -46,14 +47,23 @@ node *lookup(node *lp, int val) {
 
 node *delete(node *lp, int val) {
 	if (lp == NULL) return NULL;
-	node *p;
-	for (p = lp; p->next->val != val; p = p->next) 
-		;
-	
-	node *del = p->next;
-	free(p->next);
-	p->next = del->next;
-	return lp;
+	node *p, *prev;
+		
+	prev = NULL;
+	for (p = lp; p != NULL; p = p->next) {
+		if (p->val == val) {
+			if (prev == NULL) {
+				lp = p->next;
+			} else {
+				prev->next = p->next;	
+			}
+			printf("delete node with val = %d\n", p->val);
+			free(p);
+			return lp;
+		}
+		prev = p;
+	}
+	return NULL;
 }
 
 void map(node *lp, void (*fn) (node *, void *), void *arg) {
@@ -86,21 +96,29 @@ void freeall(node *lp) {
 
 int main() {
 	node *hp;
+	printf("---------ADD ELEMENT-----------\n");
 	hp = new_node(10);
 	hp = add_front(hp, new_node(200));
 	hp = add_front(hp, new_node(222));
 	hp = add_end(hp, new_node(1));
-
+	map(hp, printn, "val = %d\n");
+	
+	printf("---------EXPONENTION ELEMENT-----------\n");	
 	map(hp, power2, NULL);
-	map(hp, printn, "val = %d\n");	
+	map(hp, printn, "val = %d\n");
+	
+	printf("---------EVEN/ODD ELEMENT-----------\n");	
 	map(hp, is_even, NULL);
 	
+	printf("---------LOOKUP ELEMENT-----------\n");	
 	node *find;
 	find = lookup(hp, 222);
 	find == NULL ? printf("not found\n"): printf("found\n");
-	freeall(hp);
-	//printf("after deletion\n");
-	//hp = delete(hp, 1);
-	//hp = delete(hp, 100);
-	//map(hp, printn, "val = %d\n");
+	
+	printf("---------DELETE ELEMENT-----------\n");	
+	hp = delete(hp, 1);
+	hp = delete(hp, 100);
+	hp = delete(hp, 49284);
+	hp = delete(hp, 40000);
+	map(hp, printn, "val = %d\n");
 }
