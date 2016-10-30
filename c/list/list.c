@@ -74,6 +74,16 @@ node *copy_list(node *lp) {
 	return np;
 }
 
+void print_reverse(node *lp) {
+	if (lp->next != NULL) { print_reverse(lp->next); }
+	printf("rev val = %d\n", lp->val);
+}
+
+node *reverse_list(node *lp) {
+	if (lp->next != NULL) { reverse_list(lp); }
+	return NULL;
+}
+
 void map(node *lp, void (*fn) (node *, void *), void *arg) {
 	for (; lp != NULL; lp = lp->next) {
 		(*fn)(lp, arg);
@@ -110,6 +120,9 @@ int main() {
 	hp = add_front(hp, new_node(222));
 	hp = add_end(hp, new_node(1));
 	map(hp, printn, "val = %d\n");
+	
+	printf("---------REVERSE ELEMENT-----------\n");		
+	print_reverse(hp);
 	
 	printf("---------EXPONENTION ELEMENT-----------\n");	
 	map(hp, power2, NULL);
