@@ -37,16 +37,6 @@ void swap(int a[], int i, int j) {
 	a[j] = tmp;
 }
 
-void iter_sort(int a[], int n) {
-	swap(a, 0, rand() % n);
-	int last = 0;
-	for (int i = 1; i < n; i++)
-		if (a[i] < a[0])
-			swap(a, ++last, i);
-	
-	swap(a, 0, last);
-}
-
 void print_array(int a[], int n) {
 	for (int i = 0; i < n; i++) {
 		printf("%d ", a[i]);	
