@@ -41,7 +41,15 @@ void free_tree(node *n) {
 	if (n == NULL) { return; }
 	free_tree(n->left);
 	free_tree(n->right);
+	printf("free element %d\n", n->val);
 	free(n);
+}
+
+int tree_height(node *n) {
+	if (n == NULL) { return 0; }
+	int l_h = tree_height(n->left);
+	int r_h = tree_height(n->right);
+	return r_h > l_h ? r_h + 1 : l_h + 1;
 }
 
 int main() {
@@ -49,5 +57,12 @@ int main() {
 	root = insert(root, 10);
 	root = insert(root, 3);
 	root = insert(root, 12);
+	root = insert(root, 11);
+	root = insert(root, 15);
+	root = insert(root, 14);
+	root = insert(root, 16);
 	print_tree(root);
+	printf("Height = %d\n", tree_height(root));
+	//free_tree(root);
+	//print_tree(root);
 }
