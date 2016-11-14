@@ -40,19 +40,20 @@ node *look_up(node *n, int val) {
 	return n;
 }
 
-void print_tree(node *n) {
+void print_tree_inorder(node *n) {
 	if (n == NULL) { return; }
-	print_tree(n->left);
+	print_tree_inorder(n->left);
 	printf("el = %d\n", n->val);
-	print_tree(n->right);
+	print_tree_inorder(n->right);
 }
 
-void free_tree(node *n) {
-	if (n == NULL) { return; }
-	free_tree(n->left);
-	free_tree(n->right);
+node* free_tree(node *n) {
+	if (n == NULL) { return n; }
+	n->left = free_tree(n->left);
+	n->right = free_tree(n->right);
 	printf("free element %d\n", n->val);
 	free(n);
+	return NULL;
 }
 
 int tree_height(node *n) {
@@ -71,7 +72,7 @@ int main() {
 	root = insert(root, 15);
 	root = insert(root, 14);
 	root = insert(root, 16);
-	print_tree(root);
+	print_tree_inorder(root);
 	printf("Height = %d\n", tree_height(root));
 	node* fn = look_up(root, 3);
 	printf("Find node with val = %d\n", fn->val);
@@ -80,6 +81,8 @@ int main() {
 	if (nd == NULL) {
 		printf("node with val = 1000 was not found\n");
 	}	
-	//free_tree(root);
-	//print_tree(root);
+	root = free_tree(root);
+	if (root == NULL) {
+		printf("root was deleted\n");
+	}
 }
