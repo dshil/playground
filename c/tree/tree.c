@@ -30,6 +30,16 @@ node *insert(node *n, int val) {
 	return n;
 }
 
+node *look_up(node *n, int val) {
+	if (n == NULL) { return NULL; }
+	if (n->val > val) {
+		return look_up(n->left, val);
+	} else if (n->val < val) {
+		return look_up(n->right, val);
+	}
+	return n;
+}
+
 void print_tree(node *n) {
 	if (n == NULL) { return; }
 	print_tree(n->left);
@@ -63,6 +73,13 @@ int main() {
 	root = insert(root, 16);
 	print_tree(root);
 	printf("Height = %d\n", tree_height(root));
+	node* fn = look_up(root, 3);
+	printf("Find node with val = %d\n", fn->val);
+	
+	node *nd = look_up(root, 1000);
+	if (nd == NULL) {
+		printf("node with val = 1000 was not found\n");
+	}	
 	//free_tree(root);
 	//print_tree(root);
 }
