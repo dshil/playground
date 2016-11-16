@@ -66,6 +66,27 @@ node *delete(node *lp, int val) {
 	return NULL;
 }
 
+node *copy_list(node *lp) {
+	node *np;
+	for (; lp != NULL; lp = lp->next) {
+		np = add_end(np, new_node(lp->val));
+	}
+	return np;
+}
+
+void print_reverse(node *lp) {
+	if (lp->next != NULL) { print_reverse(lp->next); }
+	printf("rev val = %d\n", lp->val);
+}
+
+void reverse_list(node *hp) {
+	if (hp->next == NULL) { return; }
+	int tmp = hp->val;
+	hp->val = hp->next->val;
+	hp->next->val = tmp;
+	reverse_list(hp->next);
+} 
+
 void map(node *lp, void (*fn) (node *, void *), void *arg) {
 	for (; lp != NULL; lp = lp->next) {
 		(*fn)(lp, arg);
@@ -103,6 +124,10 @@ int main() {
 	hp = add_end(hp, new_node(1));
 	map(hp, printn, "val = %d\n");
 	
+	printf("---------REVERSE ELEMENT-----------\n");
+	reverse_list(hp);
+	map(hp, printn, "val = %d\n");	
+	
 	printf("---------EXPONENTION ELEMENT-----------\n");	
 	map(hp, power2, NULL);
 	map(hp, printn, "val = %d\n");
@@ -115,10 +140,16 @@ int main() {
 	find = lookup(hp, 222);
 	find == NULL ? printf("not found\n"): printf("found\n");
 	
+	node *new_list;
+	new_list = copy_list(hp);
 	printf("---------DELETE ELEMENT-----------\n");	
 	hp = delete(hp, 1);
 	hp = delete(hp, 100);
 	hp = delete(hp, 49284);
 	hp = delete(hp, 40000);
 	map(hp, printn, "val = %d\n");
+
+	printf("---------COPY ELEMENT-----------\n");	
+	map(new_list, printn, "cp val = %d\n");
+	freeall(new_list);
 }
