@@ -22,18 +22,17 @@ func Generate(in io.Reader) ([]byte, error) {
 		prefixesSuffixes[prefix] = append(prefixesSuffixes[prefix], text[i])
 	}
 
-	for k, v := range prefixesSuffixes {
-		fmt.Println(k, v)
-	}
-
 	w1 := text[0]
 	w2 := text[1]
-	fmt.Printf("%v %v ", w1, w2)
+
+	var res bytes.Buffer
+	fmt.Fprintf(&res, "%v %v ", w1, w2)
+
 	for {
 		suff := prefixesSuffixes[w1+" "+w2]
 		rnum := rand.Intn(len(suff))
 		s := suff[rnum]
-		fmt.Printf("%v ", s)
+		fmt.Fprintf(&res, "%v ", s)
 		if s == "(end)" {
 			break
 		}
@@ -41,5 +40,5 @@ func Generate(in io.Reader) ([]byte, error) {
 		w2 = s
 	}
 
-	return []byte("mock"), nil
+	return res.Bytes(), nil
 }
