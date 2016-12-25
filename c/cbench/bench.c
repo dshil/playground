@@ -6,7 +6,7 @@ void bench(void (*) (), char *, int);
 void inc();
 
 int main() {
-	bench(inc, "inc operations", 1e6);
+	bench(inc, "BenchmarkInc", 1e6);
 }
 
 void bench(void (*fn) (), char *op_desc, int op_count) {
@@ -27,7 +27,7 @@ void bench(void (*fn) (), char *op_desc, int op_count) {
 	for (i = 0; i < sizeof(measurements)/sizeof(int); i++) {
 		sum += measurements[i];
 	}
-	printf("%s takes %.3f nanoseconds\n", op_desc, (double) sum/op_count);
+	printf("%-15s %-10d %.3f ns/op\n", op_desc, op_count, (double) sum/op_count);
 }
 
 void inc() { 
