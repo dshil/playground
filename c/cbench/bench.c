@@ -2,14 +2,15 @@
 #include <math.h>
 #include <time.h>
 
-void bench(void (*) (), char *, int);
+void bench(void (*) (), char *);
 void inc();
 
 int main() {
-	bench(inc, "BenchmarkInc", 1e6);
+	bench(inc, "BenchmarkInc");
 }
 
-void bench(void (*fn) (), char *op_desc, int op_count) {
+void bench(void (*fn) (), char *op_desc) {
+	int op_count = 1e6;
 	int measurements [op_count];
 
 	int i;
@@ -27,6 +28,7 @@ void bench(void (*fn) (), char *op_desc, int op_count) {
 	for (i = 0; i < sizeof(measurements)/sizeof(int); i++) {
 		sum += measurements[i];
 	}
+	
 	printf("%-15s %-10d %.3f ns/op\n", op_desc, op_count, (double) sum/op_count);
 }
 
