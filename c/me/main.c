@@ -4,22 +4,15 @@
 // prints input file
 void me(FILE *fin);
 
-int main(int argc, char *argv[]) {
+int main(void) {
     int i;
     FILE *fin;
 
-    if (argc == 1) {
-        // read from stdin
+    if ((fin = fopen(__FILE__, "r")) == NULL) {
+        printf("can't open %s\n", __FILE__);
     } else {
-        // read from file
-        for (i = 1; i < argc; i++) {
-            if ((fin = fopen(argv[i], "r")) == NULL) {
-                printf("can't open %s\n", argv[i]);
-            } else {
-                me(fin);
-                fclose(fin);
-            }
-        }
+        me(fin);
+        fclose(fin);
     }
 
     return 0;
@@ -36,7 +29,7 @@ void me(FILE *fin) {
             buf[i++] = c;
         }
 
-        // buf doesn't end with `/0` symbol, that's why we don't know the len.
+        // buf doesn't end with `\0` symbol, that's why we don't know the len.
         printf("%.*s\n", i, buf);
     } while (c != EOF);
 }
