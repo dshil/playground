@@ -18,7 +18,7 @@ int main(int ac, char *av[])
 		do_more(stdin);
 	} else {
 		// read all input files.
-		for (i = 0; i < ac; i++) {
+		for (i = 1; i < ac; i++) {
 			if ((fin = fopen(av[i], "r")) == NULL) {
 				fprintf(stderr, "can't read a file %s\n", av[i]);
 			} else {
