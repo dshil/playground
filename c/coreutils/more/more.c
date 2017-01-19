@@ -6,11 +6,11 @@
 #define LINELEN 512
 
 void do_more(FILE *fin);
-int see_more();
+size_t see_more();
 
 int main(int ac, char *av[])
 {
-	int i;
+	size_t i;
 	FILE *fin;
 
 	if (ac == 1) {
@@ -20,7 +20,7 @@ int main(int ac, char *av[])
 		// read all input files.
 		for (i = 0; i < ac; i++) {
 			if ((fin = fopen(av[i], "r")) == NULL) {
-				printf("can't read a file %s\n", av[i]);
+				fprintf(stderr, "can't read a file %s\n", av[i]);
 			} else {
 				do_more(fin);
 				fclose(fin);
@@ -28,17 +28,19 @@ int main(int ac, char *av[])
 		}
 	}
 
-	return 0;
+	exit(EXIT_SUCCESS);
 }
 
 void do_more(FILE *fin)
 {
-	int line_cnt = 0;
-	int reply = 0;
+	size_t line_cnt = 0;
+	size_t reply = 0;
 
-	char buf[LINELEN];
+	char *line = NULL;
+	size_t linecap = 0;
+	ssize_t linelen;
 
-	while (fgets(buf, LINELEN, fin)) {
+	while ((linelen = getline(&line, &linecap, fin)) > 0) {
 		if (line_cnt == PAGELEN) {
 			// ask user what to do.
 			reply = see_more();
@@ -48,22 +50,24 @@ void do_more(FILE *fin)
 			line_cnt -= reply;
 		}
 
-		if (fputs(buf, stdout) == EOF) {
-			exit(1);
-		}
+		fwrite(line, linelen, 1, stdout);
 		line_cnt++;
+	}
+
+	if (line) {
+		free(line);
 	}
 }
 
-int see_more()
+size_t see_more()
 {
-	printf("\033[7m more? \033[m\n");
-	int c;
+	fprintf(stderr, "\033[7m more? \033[m\n");
+	char c;
 
 	while ((c = getchar()) != EOF) {
 		if (c == 'q') {
 			return 0;
-		} else if (c == '\0') {
+		} else if (c == ' ') {
 			return PAGELEN;
 		} else if (c == '\n') {
 			return 1;
