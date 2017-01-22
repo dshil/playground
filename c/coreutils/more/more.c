@@ -1,28 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
+#include <curses.h>
+#include <term.h>
 
-#define PAGELEN 24
-#define LINELEN 512
-
-void do_more(FILE *fin);
-size_t see_more();
+void do_more(FILE *fin, int nrows, int ncols);
+size_t see_more(int nrows);
 
 int main(int ac, char *av[])
 {
+	int errret = 0;
+	// set the terminal type for the later terminfo usage.
+	setupterm(NULL, fileno(stderr), &errret);
+	if (!errret) {
+		exit(EXIT_FAILURE);
+	}
+
+	int nrows = tigetnum("lines");
+	int ncols = tigetnum("cols");
+
 	size_t i;
 	FILE *fin;
 
 	if (ac == 1) {
 		// read from stdin.
-		do_more(stdin);
+		do_more(stdin, nrows, ncols);
 	} else {
 		// read all input files.
 		for (i = 1; i < ac; i++) {
 			if ((fin = fopen(av[i], "r")) == NULL) {
 				fprintf(stderr, "can't read a file %s\n", av[i]);
 			} else {
-				do_more(fin);
+				do_more(fin, nrows, ncols);
 				fclose(fin);
 			}
 		}
@@ -31,7 +39,7 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-void do_more(FILE *fin)
+void do_more(FILE *fin, int nrows, int ncols)
 {
 	size_t line_cnt = 0;
 	size_t reply = 0;
@@ -41,11 +49,11 @@ void do_more(FILE *fin)
 	ssize_t linelen;
 
 	while ((linelen = getline(&line, &linecap, fin)) > 0) {
-		if (line_cnt == PAGELEN) {
+		if (line_cnt == nrows) {
 			// ask user what to do.
-			reply = see_more();
+			reply = see_more(nrows);
 			if (reply == 0) {
-				break;
+				return;
 			}
 			line_cnt -= reply;
 		}
@@ -59,7 +67,7 @@ void do_more(FILE *fin)
 	}
 }
 
-size_t see_more()
+size_t see_more(int nrows)
 {
 	fprintf(stderr, "\033[7m more? \033[m\n");
 	char c;
@@ -68,7 +76,7 @@ size_t see_more()
 		if (c == 'q') {
 			return 0;
 		} else if (c == ' ') {
-			return PAGELEN;
+			return nrows;
 		} else if (c == '\n') {
 			return 1;
 		}
