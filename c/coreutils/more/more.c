@@ -4,7 +4,7 @@
 #include <term.h>
 
 void do_more(FILE *fin, int nrows, int ncols);
-size_t see_more(int nrows);
+size_t see_more(FILE *fp_tty, int nrows);
 
 int main(int ac, char *av[])
 {
@@ -48,11 +48,17 @@ void do_more(FILE *fin, int nrows, int ncols)
 	size_t linecap = 0;
 	ssize_t linelen;
 
+	FILE *fp_tty;
+	if ((fp_tty = fopen("/dev/tty", "r")) == NULL) {
+		exit(EXIT_FAILURE);
+	}
+
 	while ((linelen = getline(&line, &linecap, fin)) > 0) {
 		if (line_cnt == nrows) {
 			// ask user what to do.
-			reply = see_more(nrows);
+			reply = see_more(fp_tty, nrows);
 			if (reply == 0) {
+				fclose(fp_tty);
 				return;
 			}
 			line_cnt -= reply;
@@ -67,12 +73,12 @@ void do_more(FILE *fin, int nrows, int ncols)
 	}
 }
 
-size_t see_more(int nrows)
+size_t see_more(FILE *fp_tty, int nrows)
 {
 	fprintf(stderr, "\033[7m more? \033[m\n");
 	char c;
 
-	while ((c = getchar()) != EOF) {
+	while ((c = getc(fp_tty)) != EOF) {
 		if (c == 'q') {
 			return 0;
 		} else if (c == ' ') {
