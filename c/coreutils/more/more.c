@@ -3,8 +3,8 @@
 #include <curses.h>
 #include <term.h>
 
-void do_more(FILE *fin, int nrows, int ncols);
-size_t see_more(FILE *fp_tty, int nrows);
+static void do_more(FILE *fin, int nrows, int ncols);
+static size_t see_more(FILE *fp_tty, int nrows);
 
 int main(int ac, char *av[])
 {
@@ -39,7 +39,7 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-void do_more(FILE *fin, int nrows, int ncols)
+static void do_more(FILE *fin, int nrows, int ncols)
 {
 	size_t line_cnt = 0;
 	size_t reply = 0;
@@ -73,7 +73,7 @@ void do_more(FILE *fin, int nrows, int ncols)
 	}
 }
 
-size_t see_more(FILE *fp_tty, int nrows)
+static size_t see_more(FILE *fp_tty, int nrows)
 {
 	fprintf(stderr, "\033[7m more? \033[m\n");
 	char c;
