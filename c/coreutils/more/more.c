@@ -1,9 +1,11 @@
+#include <curses.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <curses.h>
+#include <string.h>
 #include <term.h>
 
-static void do_more(FILE *fin, int nrows, int ncols);
+static void do_more(FILE *fin, FILE *fp_tty, int nrows, int ncols);
 static size_t see_more(FILE *fp_tty, int nrows);
 
 int main(int ac, char *av[])
@@ -15,31 +17,66 @@ int main(int ac, char *av[])
 		exit(EXIT_FAILURE);
 	}
 
+	FILE *fp_tty = fopen("/dev/tty", "r");
+	if (fp_tty == NULL) {
+		perror("can't open /dev/tty");
+
+		if (fclose(fp_tty) == EOF) {
+			perror("can't close /dev/tty");
+		}
+
+		exit(EXIT_FAILURE);
+	}
+
 	int nrows = tigetnum("lines");
 	int ncols = tigetnum("cols");
 
-	size_t i;
-	FILE *fin;
-
 	if (ac == 1) {
-		// read from stdin.
-		do_more(stdin, nrows, ncols);
+		do_more(stdin, fp_tty, nrows, ncols);
 	} else {
-		// read all input files.
+		size_t i = 0;
+		FILE *fin = NULL;
+
 		for (i = 1; i < ac; i++) {
-			if ((fin = fopen(av[i], "r")) == NULL) {
-				fprintf(stderr, "can't read a file %s\n", av[i]);
-			} else {
-				do_more(fin, nrows, ncols);
-				fclose(fin);
+			fin = fopen(av[i], "r");
+			if (fin == NULL) {
+				fprintf(stderr, "can't open a file %s: %s\n", av[i],
+					strerror(errno));
+
+				if (fclose(fin) == EOF) {
+					fprintf(stderr, "can't close a file %s: %s\n", av[i],
+						strerror(errno));
+				}
+
+				if (fclose(fp_tty) == EOF) {
+					perror("can't close /dev/tty");
+				}
+
+				exit(EXIT_FAILURE);
+			}
+
+			do_more(fin, fp_tty, nrows, ncols);
+			if (fclose(fin) == EOF) {
+				fprintf(stderr, "can't close a file %s: %s\n", av[i],
+					strerror(errno));
+
+				if (fclose(fp_tty) == EOF) {
+					perror("can't close /dev/tty");
+				}
+
+				exit(EXIT_FAILURE);
 			}
 		}
 	}
 
+	if (fclose(fp_tty) == EOF) {
+		perror("can't close /dev/tty");
+		exit(EXIT_FAILURE);
+	}
 	exit(EXIT_SUCCESS);
 }
 
-static void do_more(FILE *fin, int nrows, int ncols)
+static void do_more(FILE *fin, FILE *fp_tty, int nrows, int ncols)
 {
 	size_t line_cnt = 0;
 	size_t reply = 0;
@@ -48,18 +85,12 @@ static void do_more(FILE *fin, int nrows, int ncols)
 	size_t linecap = 0;
 	ssize_t linelen;
 
-	FILE *fp_tty;
-	if ((fp_tty = fopen("/dev/tty", "r")) == NULL) {
-		exit(EXIT_FAILURE);
-	}
-
 	while ((linelen = getline(&line, &linecap, fin)) > 0) {
 		if (line_cnt == nrows) {
 			// ask user what to do.
 			reply = see_more(fp_tty, nrows);
 			if (reply == 0) {
-				fclose(fp_tty);
-				return;
+				break;
 			}
 			line_cnt -= reply;
 		}
@@ -68,9 +99,7 @@ static void do_more(FILE *fin, int nrows, int ncols)
 		line_cnt++;
 	}
 
-	if (line) {
-		free(line);
-	}
+	free(line);
 }
 
 static size_t see_more(FILE *fp_tty, int nrows)
