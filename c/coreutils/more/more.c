@@ -83,7 +83,7 @@ static void do_more(FILE *fin, FILE *fp_tty, int nrows, int ncols)
 
 	char *line = NULL;
 	size_t linecap = 0;
-	ssize_t linelen;
+	ssize_t linelen = 0;
 
 	while ((linelen = getline(&line, &linecap, fin)) > 0) {
 		if (line_cnt == nrows) {
@@ -105,7 +105,7 @@ static void do_more(FILE *fin, FILE *fp_tty, int nrows, int ncols)
 static size_t see_more(FILE *fp_tty, int nrows)
 {
 	fprintf(stderr, "\033[7m more? \033[m\n");
-	char c;
+	char c = 0;
 
 	while ((c = getc(fp_tty)) != EOF) {
 		if (c == 'q') {
