@@ -5,34 +5,20 @@ Dmitriy Shilin
 Software Engineer, Tradingview
 @dshil_o_o
 
-* Why Go has succeeded
- Language:
-  - Development speed comparable with Python
-  - Statically typed
+* Go is not as simple as door
+.image poking-fire.png 350 450
 
- Community:
-  - small modules and interfaces.
-  - backwards compatibility.
-  - tests, code quality.
-  - small standalone utilities (aka unix way).
-
-  Tooling:
-  - a variaty number of static analyzers
-
-  Gophers (I'm seriosly)
-.image poking-fire.png 150 200
-
-* Nowdays of concurrent world
-
-.image cpu.gif 400 500
-
-* Concurrensy vs Parallelism
-    Concurrent 
+* Concurrency vs Parallelism
+    Concurrency 
         - program can run on one or multiple cores.
         - way of structuring programs.
     Parallelism
         - running things in parallel.
 .image demo_gopher.gif
+
+* Nowdays of concurrent world
+
+.image cpu.gif 400 500
 
 * What should you know about concurrency in Go
  - Goroutine
@@ -43,13 +29,16 @@ Software Engineer, Tradingview
 Don't forget about "Communicating sequential processes by C.A.R Hoare".
 
 * Concurrent world
-.play hello.go /START OMIT/,/END OMIT/
+.code hello.go /START OMIT/,/END OMIT/
 
 * Pingpong 1
 .play pingpong01.go /START OMIT/,/END OMIT/
 
 * Pingpong 2
 .play pingpong02.go /START OMIT/,/END OMIT/
+
+* Pingpong with Gophers
+.image gophers.jpg
 
 * Pingpong 3
 .play pingpong03.go /START OMIT/,/END OMIT/
@@ -62,6 +51,9 @@ Don't forget about "Communicating sequential processes by C.A.R Hoare".
 
 * Block
 .play block.go /START OMIT/,/END OMIT/
+
+* Fanin with Gophers
+.image fanin.jpg
 
 * Fanin
 .play fanin1.go /START OMIT/,/END OMIT/
@@ -81,5 +73,4 @@ Don't forget about "Communicating sequential processes by C.A.R Hoare".
  Egon Elbre (gophers)
     github: https://github.com/egonelbre/gophers
 .image witch-too-much-candy.png 300 200   
-
 
