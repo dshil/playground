@@ -71,6 +71,7 @@ class Helper(unittest.TestCase):
         self.assertEqual([1, 1, 1], self.get_products_slow([1, 1, 1]))
         self.assertEqual([1], self.get_products_slow([1]))
         self.assertEqual([2, 1], self.get_products_slow([1, 2]))
+        self.assertEqual([6, 3, 2], self.get_products_slow([1, 2, 3]))
 
     def test_get_products_v2(self):
         self.assertEqual([84, 12, 28, 21], self.get_products_v2([1, 7, 3, 4]))
@@ -80,6 +81,7 @@ class Helper(unittest.TestCase):
         self.assertEqual([2, 10, 20], self.get_products_v2([10, 2, 1]))
         self.assertEqual([1], self.get_products_v2([1]))
         self.assertEqual([2, 1], self.get_products_v2([1, 2]))
+        self.assertEqual([6, 3, 2], self.get_products_v2([1, 2, 3]))
 
     def test_get_products_greedy(self):
         self.assertEqual([540, 270, 90, 108, 60], self.get_products_greedy([1, 2, 6, 5, 9]))
@@ -90,6 +92,7 @@ class Helper(unittest.TestCase):
         self.assertEqual([2, 10, 20], self.get_products_greedy([10, 2, 1]))
         self.assertEqual([1], self.get_products_greedy([1]))
         self.assertEqual([2, 1], self.get_products_greedy([1, 2]))
+        self.assertEqual([6, 3, 2], self.get_products_greedy([1, 2, 3]))
 
 unittest.main()
 
