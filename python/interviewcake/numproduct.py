@@ -41,27 +41,6 @@ def get_products_v2(data):
     return res
 
 def get_products_greedy(data):
-    d1 = []
-    for i, v in enumerate(data[:len(data) - 1]):
-        if len(d1) == 0:
-            d1.append(v)
-        else:
-            d1.append(d1[len(d1)-1] * v)
-
-    k = 1
-    for i, v in reversed(list(enumerate(data[2:]))):
-        k *= v
-        d1[i] = d1[i] * k
-
-    if len(data) == 1:
-        d1.insert(0, data[0] * k)
-    else:
-        d1.insert(0, data[1] * k)
-
-    return d1
-
-
-def get_products_greedy_v2(data):
     d1 = [1]
     for i, v in enumerate(data[:len(data) - 1]):
         if i == 0:
@@ -88,9 +67,8 @@ if __name__=='__main__':
     t_slow = Timer("get_products_slow([1, 2, 6, 5, 9])", "from __main__ import get_products_slow")
     t_fast = Timer("get_products_v2([1, 2, 6, 5, 9])", "from __main__ import get_products_v2")
     t_greedy = Timer("get_products_greedy([1, 2, 6, 5, 9])", "from __main__ import get_products_greedy")
-    t_greedy_v2 = Timer("get_products_greedy_v2([1, 2, 6, 5, 9])", "from __main__ import get_products_greedy_v2")
-    print('slow = {0}, fast = {1}, greedy_v1 = {2}, greedy_v2 = {3}'.format(t_slow.timeit(),
+    print('slow = {0}, fast = {1}, greedy = {2}'.format(
+                                                        t_slow.timeit(),
                                                         t_fast.timeit(),
-                                                        t_greedy.timeit(),
-                                                        t_greedy_v2.timeit()))
+                                                        t_greedy.timeit()))
 
