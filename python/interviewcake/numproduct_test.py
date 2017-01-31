@@ -64,6 +64,27 @@ class Helper(unittest.TestCase):
 
         return d1
 
+    def get_products_greedy_v2(self, data):
+        d1 = [1]
+        for i, v in enumerate(data[:len(data) - 1]):
+            if i == 0:
+                d1.append(v)
+            else:
+                d1.append(d1[i] * v)
+
+        pr = 1
+        i = len(d1) - 1
+        while i >= 0:
+            if i == (len(d1) - 1):
+                pr *= data[i]
+                i -= 1
+            else:
+                d1[i] *= pr
+                pr *= data[i]
+                i -= 1
+
+        return d1
+
     def test_get_products_of_all_ints(self):
         self.assertEqual([84, 12, 28, 21], self.get_products_slow([1, 7, 3, 4]))
         self.assertEqual([0, 0, 6], self.get_products_slow([2, 3, 0]))
@@ -93,6 +114,17 @@ class Helper(unittest.TestCase):
         self.assertEqual([1], self.get_products_greedy([1]))
         self.assertEqual([2, 1], self.get_products_greedy([1, 2]))
         self.assertEqual([6, 3, 2], self.get_products_greedy([1, 2, 3]))
+
+    def test_get_products_greedy_v2(self):
+        self.assertEqual([540, 270, 90, 108, 60], self.get_products_greedy_v2([1, 2, 6, 5, 9]))
+        self.assertEqual([84, 12, 28, 21], self.get_products_greedy_v2([1, 7, 3, 4]))
+        self.assertEqual([0, 0, 6], self.get_products_greedy_v2([2, 3, 0]))
+        self.assertEqual([0, 0, 0, 0, 0], self.get_products_greedy_v2([101, 2, 0, 0, 5]))
+        self.assertEqual([1, 1, 1], self.get_products_greedy_v2([1, 1, 1]))
+        self.assertEqual([2, 10, 20], self.get_products_greedy_v2([10, 2, 1]))
+        self.assertEqual([1], self.get_products_greedy_v2([1]))
+        self.assertEqual([2, 1], self.get_products_greedy_v2([1, 2]))
+        self.assertEqual([6, 3, 2], self.get_products_greedy_v2([1, 2, 3]))
 
 unittest.main()
 
