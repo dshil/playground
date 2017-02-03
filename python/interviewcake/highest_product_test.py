@@ -9,6 +9,9 @@ class Helper(unittest.TestCase):
         return data[0] * data[1] * data[2]
 
     def get_highest_product_greedy(self, data):
+        if len(data) < 3:
+            raise IndexError('Get highest product of 3 requires at least 3 items')
+
         for i, v in enumerate(data):
             if i > 2:
                 min_index = i - 1
@@ -18,7 +21,7 @@ class Helper(unittest.TestCase):
                         min_index = n
                         min_num = num
 
-                if min_num < v:
+                if abs(min_num) < abs(v):
                     data[i-3], data[min_index] = data[min_index], data[i-3]
                 else:
                     data[i-3], data[i] = data[i], data[i-3]
@@ -37,5 +40,7 @@ class Helper(unittest.TestCase):
         self.assertEqual(64, self.get_highest_product_greedy([4, 1, 4, 4]))
         self.assertEqual(300,
                         self.get_highest_product_greedy([-10, -10, 1, 3, 2]))
+        self.assertEqual(5000,
+                        self.get_highest_product_greedy([1, 10, -5, 1, -100]))
 
 unittest.main()
