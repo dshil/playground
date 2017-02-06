@@ -1,0 +1,76 @@
+Concurrency with good mood
+27 Jan 2017
+
+Dmitriy Shilin
+Software Engineer, Tradingview
+@dshil_o_o
+
+* Go is not as simple as door
+.image poking-fire.png 350 450
+
+* Concurrency vs Parallelism
+    Concurrency 
+        - program can run on one or multiple cores.
+        - way of structuring programs.
+    Parallelism
+        - running things in parallel.
+.image demo_gopher.gif
+
+* Nowdays of concurrent world
+
+.image cpu.gif 400 500
+
+* What should you know about concurrency in Go
+ - Goroutine
+ - Channels
+ - Select
+.image witch-cooking.png
+
+Don't forget about "Communicating sequential processes by C.A.R Hoare".
+
+* Concurrent world
+.code hello.go /START OMIT/,/END OMIT/
+
+* Pingpong 1
+.play pingpong01.go /START OMIT/,/END OMIT/
+
+* Pingpong 2
+.play pingpong02.go /START OMIT/,/END OMIT/
+
+* Pingpong with Gophers
+.image gophers.jpg
+
+* Pingpong 3
+.play pingpong03.go /START OMIT/,/END OMIT/
+
+* Range
+.play range.go /START OMIT/,/END OMIT/
+
+* Select
+.play select.go /START OMIT/,/END OMIT/
+
+* Block
+.play block.go /START OMIT/,/END OMIT/
+
+* Fanin with Gophers
+.image fanin.jpg
+
+* Fanin
+.play fanin1.go /START OMIT/,/END OMIT/
+
+* Workers (main)
+.play workers1_cp.go /START OMIT/,/END OMIT/
+
+* Workers (pool + workers)
+.play workers1.go /START OMIT/,/END OMIT/
+
+* Gratitude
+ Ivan Daniluk (tracer + visualisation)
+    github: https://github.com/divan
+    gophercon: https://www.youtube.com/watch?v=KyuFeiG3Y60
+    article: https://divan.github.io/posts/go_concurrency_visualize/
+ 
+ Egon Elbre (gophers)
+    github: https://github.com/egonelbre/gophers
+.image witch-too-much-candy.png 300 200   
+
