@@ -50,12 +50,16 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 
 error:
-	if ((close(rfd)) == -1) {
-		perror(av[1]);
+	if (rfd != -1) {
+		if ((close(rfd)) == -1) {
+			perror(av[1]);
+		}
 	}
 
-	if ((close(wfd)) == -1) {
-		perror(av[2]);
+	if (wfd != -1) {
+		if ((close(wfd)) == -1) {
+			perror(av[2]);
+		}
 	}
 
 	exit(EXIT_FAILURE);
