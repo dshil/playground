@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 static void show_usage();
 
@@ -14,6 +15,12 @@ int main(int ac, char *av[])
 
 	if (av[1] == NULL || av[2] == NULL) {
 		show_usage();
+		exit(EXIT_FAILURE);
+	}
+
+	if (strcmp(av[1], av[2]) == 0) {
+		fprintf(stderr, "cp: %s and %s are identical (not copied).\n",
+			av[1], av[2]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -33,8 +40,8 @@ int main(int ac, char *av[])
 	char buf[BUFSIZ];
 	ssize_t n = 0;
 
-	while ((n = read(rfd, &buf, BUFSIZ)) > 0) {
-		if ((write(wfd, &buf, n)) != n) {
+	while ((n = read(rfd, buf, BUFSIZ)) > 0) {
+		if ((write(wfd, buf, n)) != n) {
 			perror(av[2]);
 			goto error;
 		}
