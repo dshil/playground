@@ -4,6 +4,16 @@
 #include <unistd.h>
 #include <string.h>
 
+/*
+	TODO:
+	- suppport for the following options:
+		- [] f
+		- [] R
+		- [] v
+		- [] X
+	- [] add buffering.
+*/
+
 static void show_usage();
 
 int main(int ac, char *av[])
