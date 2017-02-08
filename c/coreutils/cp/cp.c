@@ -16,6 +16,8 @@
 
 static void show_usage();
 
+static const int MAXBUFSIZ = BUFSIZ * 4;
+
 int main(int ac, char *av[])
 {
 	if (ac < 2) {
@@ -47,10 +49,10 @@ int main(int ac, char *av[])
 		goto error;
 	}
 
-	char buf[BUFSIZ];
+	char buf[MAXBUFSIZ];
 	ssize_t n = 0;
 
-	while ((n = read(rfd, buf, BUFSIZ)) > 0) {
+	while ((n = read(rfd, buf, MAXBUFSIZ)) > 0) {
 		if ((write(wfd, buf, n)) != n) {
 			perror(av[2]);
 			goto error;
