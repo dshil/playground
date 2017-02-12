@@ -17,8 +17,9 @@ class Helper(unittest.TestCase):
                 left, right = v
             elif new_right > right:
                 right = new_right
-                if i == len(data) - 1:
-                    res.append((left, right))
+
+        if i == len(data) - 1:
+            res.append((left, right))
 
         if len(res) == 0:
             res.append((left, right))
