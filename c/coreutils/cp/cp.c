@@ -41,7 +41,7 @@ int main(int ac, char *av[])
 
 	if ((rfd = open(av[1], O_RDONLY)) == -1) {
 		perror(av[1]);
-		exit(EXIT_FAILURE);
+		goto error;
 	}
 
 	if ((wfd = creat(av[2], 0644)) == -1) {
@@ -57,6 +57,20 @@ int main(int ac, char *av[])
 			perror(av[2]);
 			goto error;
 		}
+	}
+
+	if (close(rfd) == -1) {
+		perror(av[1]);
+
+		if (close(wfd) == -1) {
+			perror(av[2]);
+		}
+		exit(EXIT_FAILURE);
+	}
+
+	if (close(wfd) == -1) {
+		perror(av[2]);
+		exit(EXIT_FAILURE);
 	}
 
 	exit(EXIT_SUCCESS);
