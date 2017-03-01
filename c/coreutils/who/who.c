@@ -11,8 +11,6 @@
 		- time of the last system boot.
 */
 
-static void gc();
-
 int main(int ac, char *av[])
 {
 	struct utmpx *rec = NULL;
@@ -39,15 +37,10 @@ int main(int ac, char *av[])
 				rec->ut_host);
 	}
 
-	gc();
+	endutxent(); /* close the database */
 	exit(EXIT_SUCCESS);
 
 error:
-	gc();
-	exit(EXIT_FAILURE);
-}
-
-static void gc()
-{
 	endutxent(); /* close the database */
+	exit(EXIT_FAILURE);
 }
