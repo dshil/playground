@@ -4,6 +4,12 @@
 #include <utmpx.h>
 #include <string.h>
 
+/*
+	TODO: logout doesn't actually exit from the currently active terminal,
+	it just removes the record from the account database. This behavior is
+	incorrect and will be fixed later.
+*/
+
 int main(int ac, char *av[])
 {
 	char *tty_name = ttyname(fileno(stdin));
