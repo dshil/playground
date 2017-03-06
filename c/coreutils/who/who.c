@@ -3,10 +3,10 @@
 #include <utmpx.h>
 #include <sys/time.h>
 #include <string.h>
+#include <unistd.h>
 
 /*
 	TODO:
-		- who am I.
 		- dead processes.
 		- time of the last system boot.
 */
@@ -19,8 +19,34 @@ int main(int ac, char *av[])
 
 	setutxent(); /* reset the database */
 
+	char *tty_name = NULL;
+	if (ac == 3) {
+		// who am i
+		tty_name = ttyname(fileno(stdin));
+		char *p, *q = NULL;
+
+		for (q = tty_name; (p = strtok(q, "/")) != NULL; q = NULL)
+			tty_name = p;
+
+		if (tty_name == NULL) {
+			fprintf(stderr, "undefined terminal line\n");
+			goto error;
+		}
+	}
+
+	if (ac == 2) {
+		// replace default utmp file.
+
+		// TODO: mac os x doesn't support setting the custom file for the
+		// acount database, will be fixed later when the migration to debian
+		// ubuntu will be done.
+	}
+
 	while((rec = getutxent()) != NULL) {
 		if (rec->ut_type != USER_PROCESS)
+			continue;
+
+		if (tty_name != NULL && strcmp(rec->ut_line, tty_name) != 0)
 			continue;
 
 		if ((tm_info = localtime(&rec->ut_tv.tv_sec)) == NULL) {
