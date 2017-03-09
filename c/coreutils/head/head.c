@@ -36,9 +36,7 @@ int main(int ac, char *av[])
 		nlines = n;
 	}
 
-	// read files or stdin
 	if (ac == 1) {
-		// read from stdin
 		if (file_head(stdin, "stdin") == -1) {
 			exit(EXIT_FAILURE);
 		}
@@ -85,10 +83,6 @@ static int file_head(FILE *f, char *filename)
 {
 	int c = 0;
 	int n = 0; // number of lines that were already read
-	int i = 0;
-
-	// TODO: there are lines > 256 bytes length, need to handle such case.
-	char buf[256];
 
 	while ((c = getc(f)) != EOF) {
 		if (ferror(f) != 0) {
@@ -97,19 +91,21 @@ static int file_head(FILE *f, char *filename)
 		}
 
 		if (c == '\n') {
-			buf[i++] = '\n';
-
 			if (++n == nlines) {
+				if (putchar(c) == -1) {
+					perror(filename);
+					return -1;
+				}
+
 				break;
 			}
-		} else {
-			buf[i++] = c;
-		}
-	}
 
-	if (write(fileno(stdout), &buf, i) != i) {
-		perror(filename);
-		return -1;
+		}
+
+		if (putchar(c) == -1) {
+			perror(filename);
+			return -1;
+		}
 	}
 
 	return 0;
