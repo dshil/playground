@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 static int file_head(FILE *f, char *filename);
-static int files_head(const int lo, const int hi, char *files[]);
+static int files_head(char *files[], const int lo, const int hi, const int print_name);
 
 static int nlines = 10;
 
@@ -41,7 +41,8 @@ int main(int ac, char *av[])
 			exit(EXIT_FAILURE);
 		}
 	} else {
-		if (files_head(optind, ac, av) == -1) {
+		const int is_print_file_name = ((ac - optind) > 1);
+		if (files_head(av, optind, ac, is_print_file_name) == -1) {
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -49,10 +50,12 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int files_head(const int lo, const int hi, char *files[])
+static int
+files_head(char *files[], const int lo, const int hi, const int print_name)
 {
 	int i = 0;
 	FILE *f = NULL;
+	int is_additional_space = 0;
 
 	for (i = lo; i < hi; i++) {
 		if (files[i] == NULL)
@@ -63,12 +66,20 @@ static int files_head(const int lo, const int hi, char *files[])
 			return -1;
 		}
 
-		if (file_head(f, files[i]) == -1) {
-			if (fclose(f) == -1) {
-				perror(files[i]);
-				return -1;
-			}
+		if (print_name) {
+			if (is_additional_space)
+				printf("\n");
+
+			if (i != (hi - 1))
+				is_additional_space = 1;
+			else
+				is_additional_space = 0;
+
+			printf("==> %s <==\n", files[i]);
 		}
+
+		if (file_head(f, files[i]) == -1)
+			goto error;
 
 		if (fclose(f) == -1) {
 			perror(files[i]);
@@ -77,6 +88,16 @@ static int files_head(const int lo, const int hi, char *files[])
 	}
 
 	return 0;
+
+error:
+	if (f != NULL) {
+		if (fclose(f) == -1) {
+			perror(files[i]);
+			return -1;
+		}
+	}
+
+	return -1;
 }
 
 static int file_head(FILE *f, char *filename)
@@ -92,7 +113,7 @@ static int file_head(FILE *f, char *filename)
 
 		if (c == '\n') {
 			if (++n == nlines) {
-				if (putchar(c) == -1) {
+				if (putchar(c) == EOF) {
 					perror(filename);
 					return -1;
 				}
@@ -102,7 +123,7 @@ static int file_head(FILE *f, char *filename)
 
 		}
 
-		if (putchar(c) == -1) {
+		if (putchar(c) == EOF) {
 			perror(filename);
 			return -1;
 		}
