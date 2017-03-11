@@ -23,9 +23,10 @@ int main(int ac, char *av[])
 {
 	char *nlineval = NULL;
 	char *nbyteval = NULL;
+	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "nc:")) != -1) {
+	while((opt = getopt(ac, av, "qnc:")) != -1) {
 		switch(opt) {
 			case 'n':
 				nlineval = optarg;
@@ -33,15 +34,18 @@ int main(int ac, char *av[])
 			case 'c':
 				nbyteval = optarg;
 				break;
+			case 'q':
+				suppress_file_name = 1;
+				break;
 			default:
-				fprintf(stderr, "Usage: %s [-n lines | -c bytes] [file ...]\n",
+				fprintf(stderr, "Usage: %s [-q] [-n lines | -c bytes] [file ...]\n",
 					av[0]);
 				exit(EXIT_FAILURE);
 		}
 	}
 
 	if (nlineval != NULL && nbyteval != NULL) {
-		fprintf(stderr, "Usage: %s [-n lines | -c bytes] [file ...]\n", av[0]);
+		fprintf(stderr, "Usage: %s [-q] [-n lines | -c bytes] [file ...]\n", av[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -62,7 +66,7 @@ int main(int ac, char *av[])
 			exit(EXIT_FAILURE);
 		}
 	} else {
-		config.is_print = ((ac - optind) > 1);
+		config.is_print = ((ac - optind) > 1) && !suppress_file_name;
 		config.files = av;
 		config.ac = ac;
 
