@@ -6,6 +6,7 @@
 static int read_tail_lines(FILE *f, char *filename);
 
 static int nlines = 10;
+static int nbytes = -1;
 
 int main(int ac, char *av[])
 {
@@ -13,14 +14,18 @@ int main(int ac, char *av[])
 	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "bcnq:")) != -1) {
+	while((opt = getopt(ac, av, "qn:")) != -1) {
 		switch(opt) {
-			case 'n': nlineval = optarg; break;
-			case 'q': suppress_file_name = 1; break;
+			case 'q':
+				suppress_file_name = 1;
+				break;
+			case 'n':
+				nlineval = optarg;
+				break;
 			default:
 				fprintf(stderr,
-						"Usage: %s [-q] [-n lines | -b blocks | -c bytes] \
-						[file ...]\n", av[0]);
+						"Usage: %s [-q] [-n lines | -b blocks | -c bytes] [file ...]\n",
+						av[0]);
 				exit(EXIT_FAILURE);
 		}
 	}
