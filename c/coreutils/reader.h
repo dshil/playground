@@ -5,5 +5,7 @@ struct read_config {
 	int (*read_file) (FILE *f, char *filename);
 };
 
-int read_files(struct read_config *config);
 int parse_num(char *val, int *num);
+
+int read_files(struct read_config *config);
+int read_and_print_bytes(FILE *f, char *filename, size_t nmemb);
