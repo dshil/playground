@@ -47,12 +47,12 @@ int main(int ac, char *av[])
 
 	struct read_config config;
 	if (nbytes != -1)
-		config.file_read = read_head_bytes;
+		config.read_file = read_head_bytes;
 	else
-		config.file_read = read_head_lines;
+		config.read_file = read_head_lines;
 
 	if (ac == optind) {
-		if (config.file_read(stdin, "stdin") == -1) {
+		if (config.read_file(stdin, "stdin") == -1) {
 			exit(EXIT_FAILURE);
 		}
 	} else {
@@ -60,7 +60,7 @@ int main(int ac, char *av[])
 		config.argv = av;
 		config.ac = ac;
 
-		if (files_read(&config) == -1) {
+		if (read_files(&config) == -1) {
 			exit(EXIT_FAILURE);
 		}
 	}

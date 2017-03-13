@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include "reader.h"
 
-int files_read(struct read_config *conf)
+int read_files(struct read_config *conf)
 {
 	int i = 0;
 	FILE *f = NULL;
@@ -31,7 +31,7 @@ int files_read(struct read_config *conf)
 			printf("==> %s <==\n", conf->argv[i]);
 		}
 
-		if (conf->file_read(f, conf->argv[i]) == -1) {
+		if (conf->read_file(f, conf->argv[i]) == -1) {
 			if (fclose(f) == -1) {
 				perror(conf->argv[i]);
 				return -1;
