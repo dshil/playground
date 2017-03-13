@@ -56,6 +56,7 @@ static int read_tail_lines(FILE *f, char *filename)
 {
 	int c = 0;
 	int n = 0;
+	int nc = 0; /* number of characters to print */
 
 	if (fseek(f, 0, SEEK_END) == -1) {
 		perror(filename);
@@ -77,6 +78,7 @@ static int read_tail_lines(FILE *f, char *filename)
 		if (c == '\n' && (++n == (nlines + 1)))
 			continue;
 
+		nc++;
 		if (ungetc(c, f) == EOF) {
 			perror(filename);
 			return -1;
@@ -84,16 +86,19 @@ static int read_tail_lines(FILE *f, char *filename)
 
 	} while (n != (nlines+1));
 
-	while((c = getc(f)) != EOF) {
-		if (ferror(f) != 0) {
-			perror(filename);
-			return -1;
-		}
+	char buf[nc];
+	ssize_t nr = 0;
+	const int len = sizeof(buf)/sizeof(buf[0]);
 
-		if (putchar(c) == EOF) {
-			perror(filename);
-			return -1;
-		}
+	nr = fread(buf, 1, len, f);
+	if (ferror(f) != 0) {
+		perror(filename);
+		return -1;
+	}
+
+	if (fwrite(buf, 1, nr, stdout) != nr) {
+		perror(filename);
+		return -1;
 	}
 
 	return 0;
