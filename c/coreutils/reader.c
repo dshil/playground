@@ -62,3 +62,23 @@ int parse_num(char *val, int *num)
 	*num = n;
 	return 0;
 }
+
+int read_and_print_bytes(FILE *f, char *filename, size_t nmemb)
+{
+	char buf[nmemb];
+	ssize_t n = 0;
+	const int len = sizeof(buf)/sizeof(buf[0]);
+
+	n = fread(buf, 1, len, f);
+	if (ferror(f) != 0) {
+		perror(filename);
+		return -1;
+	}
+
+	if (fwrite(buf, 1, n, stdout) != n) {
+		perror(filename);
+		return -1;
+	}
+
+	return 0;
+}
