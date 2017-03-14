@@ -7,6 +7,8 @@ static int read_tail_lines(FILE *f, char *filename);
 static int read_tail_bytes(FILE *f, char *filename);
 static int read_tail_blocks(FILE *f, char *filename);
 
+static int read_stdin_tail(struct read_config *conf);
+
 static int nlines = 10;
 static int nbytes = -1;
 static int nblocks = -1;
@@ -63,8 +65,9 @@ int main(int ac, char *av[])
 		config.read_file = read_tail_lines;
 
 	if (ac == optind) {
-		if (config.read_file(stdin, "stdin") == -1)
+		if (read_stdin_tail(&config) == -1)
 			exit(EXIT_FAILURE);
+
 	} else {
 		config.is_print = ((ac - optind) > 1) && !suppress_file_name;
 		config.argv = av;
@@ -76,6 +79,47 @@ int main(int ac, char *av[])
 	}
 
 	exit(EXIT_SUCCESS);
+}
+
+static int read_stdin_tail(struct read_config *conf)
+{
+	// std is not seekable, need to read the whole stuff from stdin to the
+	// temporary file.
+	FILE *tmp = NULL;
+
+	if ((tmp = tmpfile()) == NULL) {
+		perror("temporary file");
+		goto error;
+	}
+
+	const int buf_size = BUFSIZ*4;
+	char buf[buf_size];
+	ssize_t n = 0;
+
+	while((n = fread(buf, 1, buf_size, stdin)) > 0) {
+		if (fwrite(buf, 1, n, tmp) != n) {
+			perror("temporary file");
+			goto error;
+		}
+	}
+
+	if (conf->read_file(tmp, "stdin") == -1)
+		goto error;
+
+	if (fclose(tmp) == -1) {
+		perror("temporary file");
+		goto error;
+	}
+
+	return 0;
+
+error:
+	if (tmp != NULL) {
+		if (fclose(tmp) == -1) {
+			perror("temporary file");
+		}
+	}
+	return -1;
 }
 
 static int read_tail_lines(FILE *f, char *filename)
@@ -139,7 +183,6 @@ static int read_tail_blocks(FILE *f, char *filename)
 	int i = 0;
 	int block_size = 512;
 	for (;;) {
-
 		if (block_size == 512 && (block_sizes[i] == nblocks))
 			break;
 
