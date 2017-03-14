@@ -161,6 +161,29 @@ static int read_tail_lines(FILE *f, char *filename)
 
 static int read_tail_bytes(FILE *f, char *filename)
 {
+	if (fseek(f, 0, SEEK_END) == -1) {
+		perror(filename);
+		return -1;
+	}
+
+	const int offset = ftell(f);
+	if (offset == -1) {
+		perror(filename);
+		return -1;
+	}
+
+	if (offset == 0)
+		return 0;
+
+	int bytes = 0;
+	if (nbytes > offset) {
+		if (fseek(f, 0, SEEK_SET) == -1) {
+			perror(filename);
+			return -1;
+		}
+		return read_and_print_bytes(f, filename, offset);
+	}
+
 	if (fseek(f, -nbytes, SEEK_END) == -1) {
 		perror(filename);
 		return -1;
@@ -183,6 +206,7 @@ static int read_tail_blocks(FILE *f, char *filename)
 	int i = 0;
 	int block_size = 512;
 	for (;;) {
+		// successfully read the required number of 512 bytes blocks.
 		if (block_size == 512 && (block_sizes[i] == nblocks))
 			break;
 
