@@ -5,20 +5,24 @@
 
 static int read_tail_lines(FILE *f, char *filename);
 static int read_tail_bytes(FILE *f, char *filename);
+static int read_tail_blocks(FILE *f, char *filename);
 
 static int nlines = 10;
 static int nbytes = -1;
+static int nblocks = -1;
 
 int main(int ac, char *av[])
 {
 	char *nlineval = NULL;
 	char *nbyteval = NULL;
+	char *nblockval = NULL;
 	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "qnc:")) != -1) {
+	while((opt = getopt(ac, av, "qb:c:n:")) != -1) {
 		switch(opt) {
 			case 'q': suppress_file_name = 1; break;
+			case 'b': nblockval = optarg; break;
 			case 'n': nlineval = optarg; break;
 			case 'c': nbyteval = optarg; break;
 			default:
@@ -29,7 +33,11 @@ int main(int ac, char *av[])
 		}
 	}
 
-	if (nlineval != NULL && nbyteval != NULL) {
+	const int line_byte = (nlineval != NULL) && (nbyteval != NULL);
+	const int line_block = (nlineval != NULL) && (nblockval != NULL);
+	const int byte_block = (nbyteval != NULL) && (nblockval != NULL);
+
+	if (line_byte || line_block || byte_block) {
 		fprintf(stderr,
 				"Usage: %s [-q] [-n lines | -b blocks | -c bytes] [file ...]\n",
 				av[0]);
@@ -42,9 +50,14 @@ int main(int ac, char *av[])
 	if (parse_num(nbyteval, &nbytes) == -1)
 		exit(EXIT_FAILURE);
 
+	if (parse_num(nblockval, &nblocks) == -1)
+		exit(EXIT_FAILURE);
+
 	struct read_config config;
 
-	if (nbytes != -1)
+	if (nblocks != -1)
+		config.read_file = read_tail_blocks;
+	else if (nbytes != -1)
 		config.read_file = read_tail_bytes;
 	else
 		config.read_file = read_tail_lines;
@@ -110,4 +123,46 @@ static int read_tail_bytes(FILE *f, char *filename)
 	}
 
 	return read_and_print_bytes(f, filename, nbytes);
+}
+
+static int read_tail_blocks(FILE *f, char *filename)
+{
+	if (fseek(f, 0, SEEK_END) == -1) {
+		perror(filename);
+		return -1;
+	}
+
+	// 512, 256, 128, ..., 1.
+	char block_sizes[9];
+	const int len = sizeof(block_sizes)/sizeof(block_sizes[0]);
+
+	int i = 0;
+	int block_size = 512;
+	for (;;) {
+
+		if (block_size == 512 && (block_sizes[i] == nblocks))
+			break;
+
+		if (fseek(f, -block_size, SEEK_CUR) == -1) {
+			// The beginning of the file was reached. Try a block with the less
+			// size. If the block size equals to 1, it's time to break.
+			if (++i == len)
+				break;
+
+			block_size /= 2;
+			continue;
+		}
+		block_sizes[i]++;
+	}
+
+	i = 0;
+	block_size = 512;
+	int size = 0;
+
+	for (i = 0; i < len; i++) {
+		size += block_size * block_sizes[i];
+		block_size /= 2;
+	}
+
+	return read_and_print_bytes(f, filename, size);
 }
