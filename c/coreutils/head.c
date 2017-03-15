@@ -96,15 +96,5 @@ static int read_head_lines(FILE *f, char *filename)
 
 static int read_head_bytes(FILE *f, char *filename)
 {
-	char buf[nbytes];
-	ssize_t n = 0;
-	const int len = sizeof(buf)/sizeof(buf[0]);
-
-	n = read(fileno(f), &buf, len);
-	if (write(fileno(stdout), buf, n) != n) {
-		perror(filename);
-		return -1;
-	}
-
-	return 0;
+	return read_and_print_bytes(f, filename, nbytes);
 }
