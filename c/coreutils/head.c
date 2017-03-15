@@ -16,17 +16,11 @@ int main(int ac, char *av[])
 	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "qnc:")) != -1) {
+	while((opt = getopt(ac, av, "qn:c:")) != -1) {
 		switch(opt) {
-			case 'n':
-				nlineval = optarg;
-				break;
-			case 'c':
-				nbyteval = optarg;
-				break;
-			case 'q':
-				suppress_file_name = 1;
-				break;
+			case 'n': nlineval = optarg; break;
+			case 'c': nbyteval = optarg; break;
+			case 'q': suppress_file_name = 1; break;
 			default:
 				fprintf(stderr, "Usage: %s [-q] [-n lines | -c bytes] [file ...]\n",
 					av[0]);
