@@ -34,7 +34,7 @@ int main(int ac, char *av[])
 			case 'c': nbyteval = optarg; break;
 			default:
 				fprintf(stderr,
-						"Usage: %s [-q] [-n lines | -b blocks | -c bytes] [file ...]\n",
+						"Usage: %s [-q] [-b blocks | -c bytes | -n lines] [file ...]\n",
 						av[0]);
 				exit(EXIT_FAILURE);
 		}
@@ -46,7 +46,7 @@ int main(int ac, char *av[])
 
 	if (line_byte || line_block || byte_block) {
 		fprintf(stderr,
-				"Usage: %s [-q] [-n lines | -b blocks | -c bytes] [file ...]\n",
+				"Usage: %s [-q] [-b blocks | -c bytes | -n lines] [file ...]\n",
 				av[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -216,8 +216,8 @@ static int read_tail_blocks(FILE *f, char *filename)
 			break;
 
 		if (fseek(f, -block_size, SEEK_CUR) == -1) {
-			// The beginning of the file was reached. Try a block with the less
-			// size. If the block size equals to 1, it's time to break.
+			// Try a block with the less size. If the block size equals to 1,
+			// it's time to break.
 			if (++i == len)
 				break;
 
