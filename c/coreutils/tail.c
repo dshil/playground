@@ -3,6 +3,11 @@
 #include <unistd.h>
 #include "reader.h"
 
+/* TODO:
+ * [] Add -f option.
+ * [] Handle signals gracefully.
+ */
+
 static int read_tail_lines(FILE *f, char *filename);
 static int read_tail_bytes(FILE *f, char *filename);
 static int read_tail_blocks(FILE *f, char *filename);
