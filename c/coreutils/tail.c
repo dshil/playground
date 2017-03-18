@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/inotify.h>
 #include "reader.h"
 
 /* TODO:
@@ -13,6 +14,8 @@ static int read_tail_bytes(FILE *f, char *filename);
 static int read_tail_blocks(FILE *f, char *filename);
 
 static int read_stdin_tail(struct read_config *conf);
+static void usage(char *prog_name);
+static int listen_file_changes(char *filename);
 
 static int nlines = 10;
 static int nbytes = -1;
@@ -25,18 +28,19 @@ int main(int ac, char *av[])
 	char *nblockval = NULL;
 	int suppress_file_name = 0;
 
+	char *observe_file = NULL;
+
 	int opt = 0;
-	while((opt = getopt(ac, av, "qb:c:n:")) != -1) {
+	while((opt = getopt(ac, av, "qf:b:c:n:")) != -1) {
 		switch(opt) {
 			case 'q': suppress_file_name = 1; break;
+			case 'f': observe_file = optarg; break;
 			case 'b': nblockval = optarg; break;
 			case 'n': nlineval = optarg; break;
 			case 'c': nbyteval = optarg; break;
 			default:
-				fprintf(stderr,
-						"Usage: %s [-q] [-b blocks | -c bytes | -n lines] [file ...]\n",
-						av[0]);
-				exit(EXIT_FAILURE);
+				  usage(av[0]);
+				  exit(EXIT_FAILURE);
 		}
 	}
 
@@ -45,9 +49,7 @@ int main(int ac, char *av[])
 	const int byte_block = (nbyteval != NULL) && (nblockval != NULL);
 
 	if (line_byte || line_block || byte_block) {
-		fprintf(stderr,
-				"Usage: %s [-q] [-b blocks | -c bytes | -n lines] [file ...]\n",
-				av[0]);
+		usage(av[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -83,6 +85,11 @@ int main(int ac, char *av[])
 		}
 	}
 
+	if (observe_file != NULL) {
+		if (listen_file_changes(observe_file) == -1)
+			exit(EXIT_FAILURE);
+	}
+
 	exit(EXIT_SUCCESS);
 }
 
@@ -91,15 +98,14 @@ static int read_stdin_tail(struct read_config *conf)
 	// std is not seekable, need to read the whole stuff from stdin to the
 	// temporary file.
 	FILE *tmp = NULL;
+	const int buf_size = BUFSIZ*4;
+	char buf[buf_size];
+	ssize_t n = 0;
 
 	if ((tmp = tmpfile()) == NULL) {
 		perror("temporary file");
 		goto error;
 	}
-
-	const int buf_size = BUFSIZ*4;
-	char buf[buf_size];
-	ssize_t n = 0;
 
 	while((n = fread(buf, 1, buf_size, stdin)) > 0) {
 		if (fwrite(buf, 1, n, tmp) != n) {
@@ -237,4 +243,27 @@ static int read_tail_blocks(FILE *f, char *filename)
 	}
 
 	return read_and_print_bytes(f, filename, size);
+}
+
+static void usage(char *prog_name)
+{
+	fprintf(stderr,
+			"Usage: %s [-q] [-f file] [-b blocks | -c bytes | -n lines] [file ...]\n",
+			prog_name);
+}
+
+static int listen_file_changes(char *filename)
+{
+	ssize_t fd = 0;
+	if ((fd = inotify_init()) == -1) {
+		perror(filename);
+		return -1;
+	}
+
+	if (close(fd) == -1) {
+		perror(filename);
+		return -1;
+	}
+
+	return 0;
 }
