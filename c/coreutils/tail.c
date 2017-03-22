@@ -8,13 +8,12 @@
 #include "reader.h"
 
 /* TODO:
- * [] Add -f option.
  * [] Handle signals gracefully.
  */
 
-static int read_tail_lines(FILE *f, char *filename);
-static int read_tail_bytes(FILE *f, char *filename);
-static int read_tail_blocks(FILE *f, char *filename);
+static int read_tail_lines(FILE *f);
+static int read_tail_bytes(FILE *f);
+static int read_tail_blocks(FILE *f);
 
 static int read_stdin_tail(struct read_config *conf);
 static void usage(char *prog_name);
@@ -35,13 +34,14 @@ int main(int ac, char *av[])
 	char *nblockval = NULL;
 	int suppress_file_name = 0;
 
-	char *observe_file = NULL;
+	int is_following_file = 0;
+	char *following_file = NULL;
 
 	int opt = 0;
 	while((opt = getopt(ac, av, "qf:b:c:n:")) != -1) {
 		switch(opt) {
 			case 'q': suppress_file_name = 1; break;
-			case 'f': observe_file = optarg; break;
+			case 'f': following_file = optarg; break;
 			case 'b': nblockval = optarg; break;
 			case 'n': nlineval = optarg; break;
 			case 'c': nbyteval = optarg; break;
@@ -78,7 +78,7 @@ int main(int ac, char *av[])
 	else
 		config.read_file = read_tail_lines;
 
-	if (ac == optind && observe_file == NULL) {
+	if (ac == optind && following_file == NULL) {
 		if (read_stdin_tail(&config) == -1)
 			exit(EXIT_FAILURE);
 	} else {
@@ -91,11 +91,11 @@ int main(int ac, char *av[])
 		}
 	}
 
-	if (observe_file != NULL) {
-		if (write_from_path(observe_file) == -1)
+	if (following_file != NULL) {
+		if (write_from_path(following_file) == -1)
 			exit(EXIT_FAILURE);
 
-		if (listen_file_changes(observe_file) == -1)
+		if (listen_file_changes(following_file) == -1)
 			exit(EXIT_FAILURE);
 	}
 
@@ -106,28 +106,20 @@ static int read_stdin_tail(struct read_config *conf)
 {
 	// std is not seekable, need to read the whole stuff from stdin to the
 	// temporary file.
-	FILE *tmp = NULL;
-	const int buf_size = BUFSIZ*4;
-	char buf[buf_size];
-	ssize_t n = 0;
-
-	if ((tmp = tmpfile()) == NULL) {
-		perror("temporary file");
+	FILE *tmp = tmpfile();
+	if (tmp == NULL) {
+		perror("tmpfile");
 		goto error;
 	}
 
-	while((n = fread(buf, 1, buf_size, stdin)) > 0) {
-		if (fwrite(buf, 1, n, tmp) != n) {
-			perror("temporary file");
-			goto error;
-		}
-	}
+	if (write_from_to(stdin, tmp) == -1)
+		goto error;
 
-	if (conf->read_file(tmp, "stdin") == -1)
+	if (conf->read_file(tmp) == -1)
 		goto error;
 
 	if (fclose(tmp) == -1) {
-		perror("temporary file");
+		perror("fclose");
 		goto error;
 	}
 
@@ -136,20 +128,20 @@ static int read_stdin_tail(struct read_config *conf)
 error:
 	if (tmp != NULL) {
 		if (fclose(tmp) == -1) {
-			perror("temporary file");
+			perror("fclose");
 		}
 	}
 	return -1;
 }
 
-static int read_tail_lines(FILE *f, char *filename)
+static int read_tail_lines(FILE *f)
 {
 	int c = 0;
 	int n = 0;
 	int nc = 0; /* number of characters to print */
 
 	if (fseek(f, 0, SEEK_END) == -1) {
-		perror(filename);
+		perror("fseek");
 		return -1;
 	}
 
@@ -161,7 +153,7 @@ static int read_tail_lines(FILE *f, char *filename)
 
 		c = getc(f);
 		if (ferror(f) != 0) {
-			perror(filename);
+			perror("getc");
 			return -1;
 		}
 
@@ -170,25 +162,25 @@ static int read_tail_lines(FILE *f, char *filename)
 
 		nc++;
 		if (ungetc(c, f) == EOF) {
-			perror(filename);
+			perror("ungetc");
 			return -1;
 		}
 
 	} while (n != (nlines+1));
 
-	return read_and_print_bytes(f,filename, nc);
+	return read_and_print_bytes(f, nc);
 }
 
-static int read_tail_bytes(FILE *f, char *filename)
+static int read_tail_bytes(FILE *f)
 {
 	if (fseek(f, 0, SEEK_END) == -1) {
-		perror(filename);
+		perror("fseek");
 		return -1;
 	}
 
 	const int offset = ftell(f);
 	if (offset == -1) {
-		perror(filename);
+		perror("ftell");
 		return -1;
 	}
 
@@ -198,24 +190,24 @@ static int read_tail_bytes(FILE *f, char *filename)
 	int bytes = 0;
 	if (nbytes > offset) {
 		if (fseek(f, 0, SEEK_SET) == -1) {
-			perror(filename);
+			perror("fseek");
 			return -1;
 		}
-		return read_and_print_bytes(f, filename, offset);
+		return read_and_print_bytes(f, offset);
 	}
 
 	if (fseek(f, -nbytes, SEEK_END) == -1) {
-		perror(filename);
+		perror("fseek");
 		return -1;
 	}
 
-	return read_and_print_bytes(f, filename, nbytes);
+	return read_and_print_bytes(f, nbytes);
 }
 
-static int read_tail_blocks(FILE *f, char *filename)
+static int read_tail_blocks(FILE *f)
 {
 	if (fseek(f, 0, SEEK_END) == -1) {
-		perror(filename);
+		perror("fseek");
 		return -1;
 	}
 
@@ -251,7 +243,7 @@ static int read_tail_blocks(FILE *f, char *filename)
 		block_size /= 2;
 	}
 
-	return read_and_print_bytes(f, filename, size);
+	return read_and_print_bytes(f, size);
 }
 
 static void usage(char *prog_name)
