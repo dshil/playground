@@ -15,7 +15,7 @@ int read_files(struct read_config *conf)
 			continue;
 
 		if ((f = fopen(conf->argv[i], "r")) == NULL) {
-			perror(conf->argv[i]);
+			perror("fopen");
 			return -1;
 		}
 
@@ -31,15 +31,15 @@ int read_files(struct read_config *conf)
 			printf("==> %s <==\n", conf->argv[i]);
 		}
 
-		if (conf->read_file(f, conf->argv[i]) == -1) {
+		if (conf->read_file(f) == -1) {
 			if (fclose(f) == -1) {
-				perror(conf->argv[i]);
+				perror("fclose");
 				return -1;
 			}
 		}
 
 		if (fclose(f) == -1) {
-			perror(conf->argv[i]);
+			perror("fclose");
 			return -1;
 		}
 	}
@@ -55,7 +55,7 @@ int parse_num(char *val, int *num)
 	errno = 0;
 	int n = atoi(val);
 	if (errno != 0) {
-		perror(val);
+		perror("atoi");
 		return -1;
 	}
 
@@ -63,7 +63,7 @@ int parse_num(char *val, int *num)
 	return 0;
 }
 
-int read_and_print_bytes(FILE *f, char *filename, size_t nmemb)
+int read_and_print_bytes(FILE *f, size_t nmemb)
 {
 	char buf[nmemb];
 	ssize_t n = 0;
@@ -71,12 +71,12 @@ int read_and_print_bytes(FILE *f, char *filename, size_t nmemb)
 
 	n = fread(buf, 1, len, f);
 	if (ferror(f) != 0) {
-		perror(filename);
+		perror("fread");
 		return -1;
 	}
 
 	if (fwrite(buf, 1, n, stdout) != n) {
-		perror(filename);
+		perror("fwrite");
 		return -1;
 	}
 
