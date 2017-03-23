@@ -17,10 +17,10 @@ static int read_tail_blocks(FILE *f);
 
 static int read_stdin_tail(struct read_config *conf);
 static void usage(char *prog_name);
-static int listen_file_changes(char *filename, ssize_t offset);
-static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset);
+static int listen_file_changes(char *filename, int offset);
+static int handle_inotify_events(int ifd, char *filename, int *offset);
 
-static ssize_t write_from_path(char *filepath, ssize_t offset);
+static ssize_t write_from_path(char *filepath, int offset);
 static ssize_t write_from_to(FILE *src, FILE *dst);
 
 static int nlines = 10;
@@ -254,7 +254,7 @@ static void usage(char *prog_name)
 			prog_name);
 }
 
-static int listen_file_changes(char *filename, ssize_t offset)
+static int listen_file_changes(char *filename, int init_offset)
 {
 	ssize_t ifd = 0;
 	ssize_t wfd = 0;
@@ -301,8 +301,7 @@ static int listen_file_changes(char *filename, ssize_t offset)
 			}
 
 			if (fds[1].revents & POLLIN) {
-				offset = handle_inotify_events(ifd, filename, offset);
-				if (offset == -1)
+				if (handle_inotify_events(ifd, filename, &init_offset) == -1)
 					goto error;
 			}
 		}
@@ -342,7 +341,7 @@ error:
 	return -1;
 }
 
-static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset)
+static int handle_inotify_events(int ifd, char *filename, int *offset)
 {
 	/* Some systems can't read integer variables if they are not
 	   properly aligned. On other systems, incorrect alignment may
@@ -358,6 +357,7 @@ static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset)
 	const struct inotify_event *event;
 	char *ptr = NULL;
 	ssize_t len = 0;
+	ssize_t w_len = 0; /* number of write bytes */
 
 	errno = 0;
 
@@ -373,7 +373,7 @@ static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset)
 		*/
 
 		if (len <= 0)
-			return offset;
+			return 0;
 
 		/* Iterate over all events in the buffer */
 		for (ptr = buf; ptr < buf + len;
@@ -382,15 +382,17 @@ static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset)
 			event = (const struct inotify_event *) ptr;
 
 			if (event->mask & IN_MODIFY) {
-				offset += write_from_path(filename, offset);
-				if (offset == -1)
+				if ((w_len = write_from_path(filename, *offset)) == -1) {
 					return -1;
+				}
+
+				*offset += w_len;
 			}
 		}
 	}
 }
 
-static ssize_t write_from_path(char *filepath, ssize_t offset)
+static ssize_t write_from_path(char *filepath, int offset)
 {
 	FILE *f = fopen(filepath, "r");
 	if (f == NULL) {
@@ -430,15 +432,15 @@ static ssize_t write_from_to(FILE *src, FILE *dst)
 	char buf[BUFSIZ*4];
 	const int buf_len = BUFSIZ*4;
 	ssize_t n = 0;
-	ssize_t src_len = 0;
+	ssize_t w_len = 0;
 
 	while ((n = fread(buf, 1, buf_len, src)) > 0) {
 		if (fwrite(buf, 1, n, dst) != n) {
 			perror("fwrite");
 			return -1;
 		}
-		src_len += n;
+		w_len += n;
 	}
 
-	return src_len;
+	return w_len;
 }
