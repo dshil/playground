@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include "reader.h"
 
-static int read_head_lines(FILE *f, char *filename);
-static int read_head_bytes(FILE *f, char *filename);
+static int read_head_lines(FILE *f);
+static int read_head_bytes(FILE *f);
 
 static int nlines = 10;
 static int nbytes = -1;
@@ -46,7 +46,7 @@ int main(int ac, char *av[])
 		config.read_file = read_head_lines;
 
 	if (ac == optind) {
-		if (config.read_file(stdin, "stdin") == -1) {
+		if (config.read_file(stdin) == -1) {
 			exit(EXIT_FAILURE);
 		}
 	} else {
@@ -62,21 +62,21 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int read_head_lines(FILE *f, char *filename)
+static int read_head_lines(FILE *f)
 {
 	int c = 0;
 	int n = 0; // number of lines that were already read
 
 	while ((c = getc(f)) != EOF) {
 		if (ferror(f) != 0) {
-			perror(filename);
+			perror("ferror");
 			return -1;
 		}
 
 		if (c == '\n') {
 			if (++n == nlines) {
 				if (putchar(c) == EOF) {
-					perror(filename);
+					perror("putchar");
 					return -1;
 				}
 
@@ -86,7 +86,7 @@ static int read_head_lines(FILE *f, char *filename)
 		}
 
 		if (putchar(c) == EOF) {
-			perror(filename);
+			perror("putchar");
 			return -1;
 		}
 	}
@@ -94,7 +94,7 @@ static int read_head_lines(FILE *f, char *filename)
 	return 0;
 }
 
-static int read_head_bytes(FILE *f, char *filename)
+static int read_head_bytes(FILE *f)
 {
-	return read_and_print_bytes(f, filename, nbytes);
+	return read_and_print_bytes(f, nbytes);
 }
