@@ -17,11 +17,11 @@ static int read_tail_blocks(FILE *f);
 
 static int read_stdin_tail(struct read_config *conf);
 static void usage(char *prog_name);
-static int listen_file_changes(char *filename);
-static int handle_inotify_events(int ifd, char *filename);
+static int listen_file_changes(char *filename, ssize_t offset);
+static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset);
 
-static int write_from_path(char *filepath);
-static int write_from_to(FILE *src, FILE *dst);
+static ssize_t write_from_path(char *filepath, ssize_t offset);
+static ssize_t write_from_to(FILE *src, FILE *dst);
 
 static int nlines = 10;
 static int nbytes = -1;
@@ -92,10 +92,11 @@ int main(int ac, char *av[])
 	}
 
 	if (following_file != NULL) {
-		if (write_from_path(following_file) == -1)
+		const ssize_t file_len = write_from_path(following_file, 0);
+		if (file_len == -1)
 			exit(EXIT_FAILURE);
 
-		if (listen_file_changes(following_file) == -1)
+		if (listen_file_changes(following_file, file_len) == -1)
 			exit(EXIT_FAILURE);
 	}
 
@@ -223,8 +224,8 @@ static int read_tail_blocks(FILE *f)
 			break;
 
 		if (fseek(f, -block_size, SEEK_CUR) == -1) {
-			// Try a block with the less size. If the block size equals to 1,
-			// it's time to break.
+			// Try a block with the less size. If the block size is
+			// equal to 1, it's time to break.
 			if (++i == len)
 				break;
 
@@ -253,7 +254,7 @@ static void usage(char *prog_name)
 			prog_name);
 }
 
-static int listen_file_changes(char *filename)
+static int listen_file_changes(char *filename, ssize_t offset)
 {
 	ssize_t ifd = 0;
 	ssize_t wfd = 0;
@@ -300,7 +301,8 @@ static int listen_file_changes(char *filename)
 			}
 
 			if (fds[1].revents & POLLIN) {
-				if (handle_inotify_events(ifd, filename) == -1)
+				offset = handle_inotify_events(ifd, filename, offset);
+				if (offset == -1)
 					goto error;
 			}
 		}
@@ -340,7 +342,7 @@ error:
 	return -1;
 }
 
-static int handle_inotify_events(int ifd, char *filename)
+static ssize_t handle_inotify_events(int ifd, char *filename, ssize_t offset)
 {
 	/* Some systems can't read integer variables if they are not
 	   properly aligned. On other systems, incorrect alignment may
@@ -356,7 +358,6 @@ static int handle_inotify_events(int ifd, char *filename)
 	const struct inotify_event *event;
 	char *ptr = NULL;
 	ssize_t len = 0;
-	int is_truncated = 0;
 
 	errno = 0;
 
@@ -372,7 +373,7 @@ static int handle_inotify_events(int ifd, char *filename)
 		*/
 
 		if (len <= 0)
-			return 0;
+			return offset;
 
 		/* Iterate over all events in the buffer */
 		for (ptr = buf; ptr < buf + len;
@@ -381,14 +382,15 @@ static int handle_inotify_events(int ifd, char *filename)
 			event = (const struct inotify_event *) ptr;
 
 			if (event->mask & IN_MODIFY) {
-				if (write_from_path(filename) == -1)
+				offset += write_from_path(filename, offset);
+				if (offset == -1)
 					return -1;
 			}
 		}
 	}
 }
 
-static int write_from_path(char *filepath)
+static ssize_t write_from_path(char *filepath, ssize_t offset)
 {
 	FILE *f = fopen(filepath, "r");
 	if (f == NULL) {
@@ -396,7 +398,16 @@ static int write_from_path(char *filepath)
 		goto error;
 	}
 
-	if (write_from_to(f, stdout) == -1)
+	if (offset) {
+		if (fseek(f, offset, SEEK_SET) == -1) {
+			perror("fseek");
+			goto error;
+		}
+	}
+
+	ssize_t n = 0;
+
+	if ((n = write_from_to(f, stdout)) == -1)
 		goto error;
 
 	if (fclose(f) == -1) {
@@ -404,7 +415,7 @@ static int write_from_path(char *filepath)
 		return -1;
 	}
 
-	return 0;
+	return n;
 
 error:
 	if (f != NULL) {
@@ -414,18 +425,20 @@ error:
 	return -1;
 }
 
-static int write_from_to(FILE *src, FILE *dst)
+static ssize_t write_from_to(FILE *src, FILE *dst)
 {
 	char buf[BUFSIZ*4];
 	const int buf_len = BUFSIZ*4;
 	ssize_t n = 0;
+	ssize_t src_len = 0;
 
 	while ((n = fread(buf, 1, buf_len, src)) > 0) {
 		if (fwrite(buf, 1, n, dst) != n) {
 			perror("fwrite");
 			return -1;
 		}
+		src_len += n;
 	}
 
-	return 0;
+	return src_len;
 }
