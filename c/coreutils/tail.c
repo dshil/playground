@@ -296,7 +296,7 @@ static int listen_file_changes(char *filename, ssize_t offset)
 		if (poll_num > 0) {
 			/* Console input is available. Empty stdin and continue. */
 			if (fds[0].revents & POLLIN) {
-				while (read(STDIN_FILENO, &buf, 1) > 0)
+				while (read(STDIN_FILENO, &buf, 1) > 0 && buf != '\n')
 					continue;
 			}
 
