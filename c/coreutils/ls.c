@@ -50,7 +50,16 @@ static int r_dir(char *dirname, int is_lead_dot)
 	if (errno == ENOTDIR) /* suppose that it's a file */
 		goto success;
 
-	while((d_ptr = readdir(dir)) != NULL) {
+	for(;;) {
+		errno = 0;
+		d_ptr = readdir(dir);
+		if (d_ptr == NULL && errno != 0) {
+			perror("readdir");
+			goto error;
+		}
+		if (d_ptr == NULL)
+			break;
+
 		if (d_ptr->d_name[0] == '.' && !is_lead_dot)
 			continue;
 
