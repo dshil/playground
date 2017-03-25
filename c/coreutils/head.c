@@ -96,5 +96,14 @@ static int read_head_lines(FILE *f)
 
 static int read_head_bytes(FILE *f)
 {
-	return read_and_print_bytes(f, nbytes);
+
+	int len = 0;
+	if ((len = file_len(f)) == -1)
+		return -1;
+
+	if (len == 0)
+		return 0;
+
+	return (nbytes > len) ? read_and_print_bytes(f, len):
+		read_and_print_bytes(f, nbytes);
 }

@@ -9,3 +9,4 @@ int parse_num(char *val, int *num);
 
 int read_files(struct read_config *config);
 int read_and_print_bytes(FILE *f, size_t nmemb);
+int file_len(FILE *f);
