@@ -174,28 +174,15 @@ static int read_tail_lines(FILE *f)
 
 static int read_tail_bytes(FILE *f)
 {
-	if (fseek(f, 0, SEEK_END) == -1) {
-		perror("fseek");
+	int len = 0;
+	if ((len = file_len(f)) == -1)
 		return -1;
-	}
 
-	const int offset = ftell(f);
-	if (offset == -1) {
-		perror("ftell");
-		return -1;
-	}
-
-	if (offset == 0)
+	if (len == 0)
 		return 0;
 
-	int bytes = 0;
-	if (nbytes > offset) {
-		if (fseek(f, 0, SEEK_SET) == -1) {
-			perror("fseek");
-			return -1;
-		}
-		return read_and_print_bytes(f, offset);
-	}
+	if (nbytes > len)
+		return read_and_print_bytes(f, len);
 
 	if (fseek(f, -nbytes, SEEK_END) == -1) {
 		perror("fseek");
