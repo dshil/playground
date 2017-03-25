@@ -5,28 +5,30 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-static int r_dir(char *dirname);
+static int r_dir(char *dirname, int is_lead_dot);
 
 int main(int ac, char *av[])
 {
 	int opt = 0;
+	int is_lead_dot = 0;
 	while((opt = getopt(ac, av, "astF")) != -1) {
 		switch(opt) {
 			default:
+			case 'a': is_lead_dot = 1; break;
 				  exit(EXIT_FAILURE);
 		}
 	}
 
 	if (ac == optind) {
-		if (r_dir(".") == -1)
+		if (r_dir(".", is_lead_dot) == -1)
 			exit(EXIT_FAILURE);
 	} else if ((ac - optind) == 1) {
-		if (r_dir(*++av) == -1)
+		if (r_dir(*++av, is_lead_dot) == -1)
 			exit(EXIT_FAILURE);
 	} else {
 		while(--ac >= optind) {
 			printf("%s\n", *++av);
-			if (r_dir(*av) == -1)
+			if (r_dir(*av, is_lead_dot) == -1)
 				exit(EXIT_FAILURE);
 		}
 	}
@@ -34,7 +36,7 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int r_dir(char *dirname)
+static int r_dir(char *dirname, int is_lead_dot)
 {
 	struct dirent *d_ptr = NULL;
 
@@ -49,6 +51,9 @@ static int r_dir(char *dirname)
 		goto success;
 
 	while((d_ptr = readdir(dir)) != NULL) {
+		if (d_ptr->d_name[0] == '.' && !is_lead_dot)
+			continue;
+
 		printf("%s\n", d_ptr->d_name);
 	}
 
