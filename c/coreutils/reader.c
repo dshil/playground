@@ -82,3 +82,24 @@ int read_and_print_bytes(FILE *f, size_t nmemb)
 
 	return 0;
 }
+
+int file_len(FILE *f)
+{
+	if (fseek(f, 0, SEEK_END) == -1) {
+		perror("fseek");
+		return -1;
+	}
+
+	const int offset = ftell(f);
+	if (offset == -1) {
+		perror("ftell");
+		return -1;
+	}
+
+	if (fseek(f, 0, SEEK_SET) == -1) {
+		perror("fseek");
+		return -1;
+	}
+
+	return offset;
+}
