@@ -136,8 +136,6 @@ static int print_long_format(char **names, int nmemb)
 {
 	struct stat sb;
 	char mode_buf[12];
-	char time_str[20];
-	struct tm *tm_info = NULL;
 
 	while (nmemb-- > 0) {
 		if (stat(*names, &sb) == -1) {
@@ -148,25 +146,13 @@ static int print_long_format(char **names, int nmemb)
 		if (parse_mode(mode_buf, sb.st_mode) == -1)
 			return -1;
 
-		if ((tm_info = localtime(&sb.st_mtime)) == NULL) {
-			perror("localtime");
-			return -1;
-		}
-
-		errno = 0;
-		strftime(time_str, sizeof(time_str), "%b %e %H:%M", tm_info);
-		if (errno != 0) {
-			perror("strftime");
-			return -1;
-		}
-
-		printf("%s %d %-2s %-2s %5ld %s %s\n",
+		printf("%s %d %-2s %-2s %5ld %.12s %s\n",
 				mode_buf,
 				sb.st_nlink,
 				uid_to_name(sb.st_uid),
 				gid_to_name(sb.st_gid),
 				sb.st_size,
-				time_str,
+				4+ctime(&sb.st_mtime),
 				*names);
 
 		names++;
