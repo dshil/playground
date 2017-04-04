@@ -134,6 +134,7 @@ static void print_short_format(char **names, int nmemb)
 
 static int print_long_format(char **names, int nmemb)
 {
+	blkcnt_t bcnt = 0;
 	struct stat sb;
 	char mode_buf[12];
 
@@ -142,6 +143,7 @@ static int print_long_format(char **names, int nmemb)
 			perror("stat");
 			return -1;
 		}
+		bcnt += sb.st_blocks;
 
 		if (parse_mode(mode_buf, sb.st_mode) == -1)
 			return -1;
@@ -157,6 +159,7 @@ static int print_long_format(char **names, int nmemb)
 
 		names++;
 	}
+	printf("total %d\n", bcnt/2);
 
 	return 0;
 }
