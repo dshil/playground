@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <errno.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -11,9 +12,12 @@
 #include <sys/types.h>
 
 static int r_dir(char *dirname, int lead_dot, int long_format);
-static int print_dir_info(char **names, int nmemb, int long_format);
+
+static int
+print_dir_info(char **names, int nmemb, char *dirname, int long_format);
+
 static void print_short_format(char **names, int nmemb);
-static int print_long_format(char **names, int nmemb);
+static int print_long_format(char **names, int nmemb, char *dirname);
 
 static char *gid_to_name(gid_t gid);
 static char *uid_to_name(uid_t uid);
@@ -65,7 +69,7 @@ static int r_dir(char *dirname, int lead_dot, int long_format)
 
 	if (errno == ENOTDIR) { /* suppose that it's a file */
 		char *data[] = {dirname};
-		if (print_dir_info(data, 1, long_format) == -1)
+		if (print_dir_info(data, 1, dirname, long_format) == -1)
 			goto error;
 
 		return 0;
@@ -95,7 +99,7 @@ static int r_dir(char *dirname, int lead_dot, int long_format)
 	}
 
 	qsort(names, nname, sizeof(char *), stringcmp);
-	if (print_dir_info(names, nname, long_format) == -1)
+	if (print_dir_info(names, nname, dirname, long_format) == -1)
 		goto error;
 	goto success;
 
@@ -115,10 +119,11 @@ error:
 	return -1;
 }
 
-static int print_dir_info(char **names, int nmemb, int long_format)
+static int
+print_dir_info(char **names, int nmemb, char *dirname, int long_format)
 {
 	if (long_format) {
-		if (print_long_format(names, nmemb) == -1)
+		if (print_long_format(names, nmemb, dirname) == -1)
 			return -1;
 	} else
 		print_short_format(names, nmemb);
@@ -132,23 +137,31 @@ static void print_short_format(char **names, int nmemb)
 		printf("%s\n", *names++);
 }
 
-static int print_long_format(char **names, int nmemb)
+static int print_long_format(char **names, int nmemb, char *dirname)
 {
 	blkcnt_t bcnt = 0;
 	struct stat sb;
 	char mode_buf[12];
 
+	char *fullname = NULL;
+	const int dirname_len = strlen(dirname);
+
 	while (nmemb-- > 0) {
-		if (stat(*names, &sb) == -1) {
+		fullname = (char *) malloc(strlen(*names) + dirname_len + 2);
+		strcpy(fullname, dirname);
+		strcat(fullname, "/");
+		strcat(fullname, *names);
+
+		if (stat(fullname, &sb) == -1) {
 			perror("stat");
-			return -1;
+			goto error;
 		}
 		bcnt += sb.st_blocks;
 
 		if (parse_mode(mode_buf, sb.st_mode) == -1)
-			return -1;
+			goto error;
 
-		printf("%s %d %-2s %-2s %5ld %.12s %s\n",
+		printf("%s %4d %-8s %-8s %8ld %.12s %s\n",
 				mode_buf,
 				sb.st_nlink,
 				uid_to_name(sb.st_uid),
@@ -158,10 +171,14 @@ static int print_long_format(char **names, int nmemb)
 				*names);
 
 		names++;
+		free(fullname);
 	}
 	printf("total %d\n", bcnt/2);
-
 	return 0;
+
+error:
+	free(fullname);
+	return -1;
 }
 
 static char *uid_to_name(uid_t uid)
@@ -220,5 +237,5 @@ static int parse_mode(char *buf, mode_t m)
 
 static int stringcmp(const void *p1, const void *p2)
 {
-	return strcmp(* (char * const *) p1, * (char * const *) p2);
+	return strcasecmp(* (char * const *) p1, * (char * const *) p2);
 }
