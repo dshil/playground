@@ -5,11 +5,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-static int parse_mode(char *rec, mode_t *m);
+static int parse_mode(char *rec, mode_t *mode, int *perm_mode);
 static int setmode(char utype, char mode, mode_t *m);
+
 static int set_user_access(char utype, char mode, mode_t *m);
 static int set_group_access(char utype, char mode, mode_t *m);
 static int set_other_access(char utype, char mode, mode_t *m);
+
+static int
+change_perm(char *filename, mode_t *mode, void (*)(mode_t *, mode_t));
+
+static void add_perm(mode_t *dst, mode_t src);
+static void rm_perm(mode_t *dst, mode_t src);
 
 int main(int ac, char *av[])
 {
@@ -20,15 +27,28 @@ int main(int ac, char *av[])
 
 	char *rec = *++av;
 	char *p, *q = NULL;
+	int perm_mode = 0;
 	mode_t mode = 0;
 
 	for (q = rec; (p = strtok(q, ",")) != NULL; q = NULL) {
-		if (parse_mode(p, &mode) == -1)
+		if (parse_mode(p, &mode, &perm_mode) == -1)
 			exit(EXIT_FAILURE);
 	}
 
+	char *filename = NULL;
 	while(--ac != optind) {
-		if (chmod(*++av, mode) == -1) {
+		filename = *++av;
+		if (perm_mode == 1) {
+			if (change_perm(filename, &mode, add_perm) == -1)
+				exit(EXIT_FAILURE);
+		}
+
+		if (perm_mode == 2) {
+			if (change_perm(filename, &mode, rm_perm) == -1)
+				exit(EXIT_FAILURE);
+		}
+
+		if (chmod(filename, mode) == -1) {
 			perror("chmod");
 			exit(EXIT_FAILURE);
 		}
@@ -37,14 +57,31 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int parse_mode(char *rec, mode_t *mode)
+static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
 {
 	char *s_mode = rec;
 	char *s_utype = rec;
-	int i = 0; /* position of the ``=`` */
-	while (*s_mode++ != '=') i++;
+	int i = 0; /* position of the ``=,-,+`` */
+	for (;;) {
+		if (*s_mode == '=' || *s_mode == '-' || *s_mode == '+')
+			break;
+		i++;
+		s_mode++;
+	}
 
-	while(*s_utype != '=') {
+	char delimiter = *s_mode++;
+	if (delimiter == '=') {
+		*perm_mode = 0;
+	} else if (delimiter == '+') {
+		*perm_mode = 1;
+	} else if (delimiter == '-') {
+		*perm_mode = 2;
+	} else {
+		fprintf(stderr, "%s, invalid delimiter: %c\n", "chmod", delimiter);
+		return -1;
+	}
+
+	while(*s_utype != delimiter) {
 		while (*s_mode != '\0') {
 			if (setmode(*s_utype, *s_mode, mode) == -1)
 				return -1;
@@ -124,4 +161,27 @@ static int set_other_access(char utype, char mode, mode_t *m)
 	}
 
 	return 0;
+}
+
+static int
+change_perm(char *filename, mode_t *mode, void (*fn)(mode_t *, mode_t))
+{
+	struct stat sb;
+	if (stat(filename, &sb) == -1) {
+		perror("stat");
+		return -1;
+	}
+	(*fn)(mode, sb.st_mode);
+
+	return 0;
+}
+
+static void add_perm(mode_t *dst, mode_t src)
+{
+	*dst |= src;
+}
+
+static void rm_perm(mode_t *dst, mode_t src)
+{
+	*dst = src ^ *dst;
 }
