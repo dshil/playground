@@ -7,6 +7,7 @@
 
 static int parse_mode(char *rec, mode_t *mode, int *perm_mode);
 static int setmode(char utype, char mode, mode_t *m);
+static int is_delimiter(char c);
 
 static int set_user_access(char utype, char mode, mode_t *m);
 static int set_group_access(char utype, char mode, mode_t *m);
@@ -63,7 +64,7 @@ static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
 	char *s_utype = rec;
 	int i = 0; /* position of the ``=,-,+`` */
 	for (;;) {
-		if (*s_mode == '=' || *s_mode == '-' || *s_mode == '+')
+		if (is_delimiter(*s_mode))
 			break;
 		i++;
 		s_mode++;
@@ -81,6 +82,16 @@ static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
 		return -1;
 	}
 
+	if (is_delimiter(*s_utype)) {
+		while (*s_mode != '\0') {
+			if (setmode('u', *s_mode, mode) == -1)
+				return -1;
+			s_mode++;
+		}
+
+		return 0;
+	}
+
 	while(*s_utype != delimiter) {
 		while (*s_mode != '\0') {
 			if (setmode(*s_utype, *s_mode, mode) == -1)
@@ -91,6 +102,11 @@ static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
 		s_mode = rec + i + 1;
 	}
 	return 0;
+}
+
+static int is_delimiter(char c)
+{
+	return c == '=' || c == '+' || c == '-';
 }
 
 static int setmode(char utype, char mode, mode_t *m)
