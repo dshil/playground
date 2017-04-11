@@ -56,6 +56,9 @@ int main(int ac, char *av[])
 	ssize_t rfd = 0;
 	ssize_t wfd = 0;
 
+	char buf[MAXBUFSIZ];
+	ssize_t n = 0;
+
 	if ((rfd = open(av[ac-2], O_RDONLY)) == -1) {
 		perror(av[ac-2]);
 		goto error;
@@ -71,16 +74,12 @@ int main(int ac, char *av[])
 			fprintf(stderr, "not overwritten\n");
 			goto success;
 		}
-
 	}
 
 	if ((wfd = creat(av[ac-1], 0644)) == -1) {
 		perror(av[ac-1]);
 		goto error;
 	}
-
-	char buf[MAXBUFSIZ];
-	ssize_t n = 0;
 
 	while ((n = read(rfd, buf, MAXBUFSIZ)) > 0) {
 		if ((write(wfd, buf, n)) != n) {
@@ -149,7 +148,13 @@ static int overwrite_file(char *filename)
 		}
 	}
 
-	// file doesn't exist
+	if (tty != NULL) {
+		if (fclose(tty) == EOF) {
+			perror("/dev/tty");
+			return -1;
+		}
+	}
+
 	return 1;
 
 error:
