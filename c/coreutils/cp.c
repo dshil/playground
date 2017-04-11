@@ -60,13 +60,20 @@ int main(int ac, char *av[])
 	char buf[MAXBUFSIZ];
 	ssize_t n = 0;
 
-	if ((rfd = open(av[ac-2], O_RDONLY)) == -1) {
-		perror(av[ac-2]);
+	char *fsrc = av[ac-2];
+	char *fdst = av[ac-1];
+	char dst_buf[strlen(fsrc)+strlen(fdst)+3];
+	strcpy(dst_buf, fdst);
+	strcat(dst_buf, "/");
+	strcat(dst_buf, fsrc);
+
+	if ((rfd = open(fsrc, O_RDONLY)) == -1) {
+		perror("open");
 		goto error;
 	}
 
 	if (is_file_overwrite) {
-		int overwrite = overwrite_file(av[ac-1]);
+		int overwrite = overwrite_file(fdst);
 
 		if (overwrite == -1)
 			goto error;
@@ -78,35 +85,44 @@ int main(int ac, char *av[])
 	}
 
 	mode_t mode = 0;
-	if (access(av[ac-1], F_OK) != -1) {
+	if (access(fdst, F_OK) != -1) {
 		struct stat sb;
-		if (stat(av[ac-1], &sb) == -1) {
+		if (stat(fdst, &sb) == -1) {
 			perror("stat");
 			goto error;
 		}
 		mode = sb.st_mode;
+
+		if (S_ISDIR(sb.st_mode)) {
+			if (stat(fsrc, &sb) == -1) {
+				perror("stat");
+				goto error;
+			}
+			mode = sb.st_mode;
+			fdst = dst_buf;
+		}
 	}
 	if (mode == 0)
 		mode = 0644;
 
-	if ((wfd = creat(av[ac-1], mode)) == -1) {
-		perror(av[ac-1]);
+	if ((wfd = creat(fdst, mode)) == -1) {
+		perror("creat");
 		goto error;
 	}
 
 	while ((n = read(rfd, buf, MAXBUFSIZ)) > 0) {
 		if ((write(wfd, buf, n)) != n) {
-			perror(av[ac-1]);
+			perror("write");
 			goto error;
 		}
 	}
 	goto success;
 
 success:
-	gc(rfd, av[ac-2], wfd, av[ac-1]) == -1 ? exit(EXIT_FAILURE) : exit(EXIT_SUCCESS);
+	gc(rfd, fsrc, wfd, fdst) == -1 ? exit(EXIT_FAILURE) : exit(EXIT_SUCCESS);
 
 error:
-	gc(rfd, av[ac-2], wfd, av[ac-1]);
+	gc(rfd, fsrc, wfd, fdst);
 	exit(EXIT_FAILURE);
 }
 
