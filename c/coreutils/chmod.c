@@ -5,6 +5,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+/*
+	TODO:
+		1. Support for numerical mode.
+		2. -c option.
+		3. -R option.
+*/
+
 static int parse_mode(char *rec, mode_t *mode, int *perm_mode);
 static int setmode(char utype, char mode, mode_t *m);
 static int is_delimiter(char c);
