@@ -11,6 +11,20 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+/*
+	TODO:
+		1. Multi-colon output.
+		2. Colorful output (to distinguish dir and file).
+		3. Sort option.
+		4. Author option.
+		5. Directory option.
+		6. Inode option.
+		7. Dereference option.
+		8. Recursive option.
+		9. Reverse order option.
+		10. Disable sorting option.
+*/
+
 static int r_dir(char *dirname, int lead_dot, int long_format);
 
 static int
@@ -141,7 +155,7 @@ static int print_long_format(char **names, int nmemb, char *dirname)
 {
 	blkcnt_t bcnt = 0;
 	struct stat sb;
-	char mode_buf[12];
+	char mode_buf[11];
 
 	char *fullname = NULL;
 	const int dirname_len = strlen(dirname);
@@ -209,7 +223,7 @@ static char *gid_to_name(gid_t gid)
 
 static int parse_mode(char *buf, mode_t m)
 {
-	if (strcpy(buf, "-----------") == NULL) {
+	if (strcpy(buf, "----------") == NULL) {
 		perror("strcpy");
 		return -1;
 	}
@@ -221,16 +235,17 @@ static int parse_mode(char *buf, mode_t m)
 	if (m & S_IRUSR) buf[1] = 'r';
 	if (m & S_IWUSR) buf[2] = 'w';
 	if (m & S_IXUSR) buf[3] = 'x';
+	if (m & S_ISUID) buf[3] = 's';
 
 	if (m & S_IRGRP) buf[4] = 'r';
 	if (m & S_IWGRP) buf[5] = 'w';
 	if (m & S_IXGRP) buf[6] = 'x';
+	if (m & S_ISGID) buf[6] = 's';
 
 	if (m & S_IROTH) buf[7] = 'r';
 	if (m & S_IWOTH) buf[8] = 'w';
 	if (m & S_IXOTH) buf[9] = 'x';
-
-	buf[10] = '.';
+	if (m & S_ISVTX) buf[9] = 't';
 
 	return 0;
 }
