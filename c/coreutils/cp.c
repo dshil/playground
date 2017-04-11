@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 /*
 	TODO:
@@ -76,7 +77,19 @@ int main(int ac, char *av[])
 		}
 	}
 
-	if ((wfd = creat(av[ac-1], 0644)) == -1) {
+	mode_t mode = 0;
+	if (access(av[ac-1], F_OK) != -1) {
+		struct stat sb;
+		if (stat(av[ac-1], &sb) == -1) {
+			perror("stat");
+			goto error;
+		}
+		mode = sb.st_mode;
+	}
+	if (mode == 0)
+		mode = 0644;
+
+	if ((wfd = creat(av[ac-1], mode)) == -1) {
 		perror(av[ac-1]);
 		goto error;
 	}
