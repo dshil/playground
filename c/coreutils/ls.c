@@ -25,7 +25,8 @@
 		10. Disable sorting option.
 */
 
-static int r_dir(char *dirname, int lead_dot, int long_format);
+static int
+r_dir(char *dirname, int lead_dot, int long_format, int is_sort);
 
 static int
 print_dir_info(char **names, int nmemb, char *dirname, int long_format);
@@ -45,26 +46,28 @@ int main(int ac, char *av[])
 	int opt = 0;
 	int lead_dot = 0;
 	int long_format = 0;
-	while((opt = getopt(ac, av, "al")) != -1) {
+	int is_sort = 1;
+	while((opt = getopt(ac, av, "alU")) != -1) {
 		switch(opt) {
 			case 'a': lead_dot = 1; break;
 			case 'l': long_format = 1; break;
+			case 'U': is_sort = 0; break;
 			default:
 				  exit(EXIT_FAILURE);
 		}
 	}
 
 	if (ac == optind) {
-		if (r_dir(".", lead_dot, long_format) == -1)
+		if (r_dir(".", lead_dot, long_format, is_sort) == -1)
 			exit(EXIT_FAILURE);
 	} else if ((ac - optind) == 1) {
 		av += optind;
-		if (r_dir(*av, lead_dot, long_format) == -1)
+		if (r_dir(*av, lead_dot, long_format, is_sort) == -1)
 			exit(EXIT_FAILURE);
 	} else {
 		while(--ac >= optind) {
 			printf("%s\n", *++av);
-			if (r_dir(*av, lead_dot, long_format) == -1)
+			if (r_dir(*av, lead_dot, long_format, is_sort) == -1)
 				exit(EXIT_FAILURE);
 		}
 	}
@@ -72,7 +75,8 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int r_dir(char *dirname, int lead_dot, int long_format)
+static int
+r_dir(char *dirname, int lead_dot, int long_format, int is_sort)
 {
 	errno = 0;
 	DIR *dir = opendir(dirname);
@@ -112,7 +116,9 @@ static int r_dir(char *dirname, int lead_dot, int long_format)
 		names[nname++] = d_ptr->d_name;
 	}
 
-	qsort(names, nname, sizeof(char *), stringcmp);
+	if (is_sort)
+		qsort(names, nname, sizeof(char *), stringcmp);
+
 	if (print_dir_info(names, nname, dirname, long_format) == -1)
 		goto error;
 	goto success;
