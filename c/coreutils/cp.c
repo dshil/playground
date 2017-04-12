@@ -1,15 +1,20 @@
 #include <stdio.h>
-#include <stdlib.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
-#include <ctype.h>
 #include <sys/stat.h>
+#include "reader.h"
 
 /*
 	TODO:
 	- support for the following options:
+		- [] rework error message reporting.
+			e.g. cp: cannot stat 'foo': No such file or directory.
 		- [] f
 		- [] R
 		- [] v
@@ -17,8 +22,11 @@
 	- handle C-Z correctly.
 */
 
+static int cpdir(char *src_path, char *dst_path);
+static int cpf(char *src_path, char *src_name, char *dst_path);
+
 static int overwrite_file(char *filename);
-static int gc(int rfd, char *r_file, int wfd, char *w_file);
+static int gc(FILE *rf, char *r_file, FILE *wfd, char *w_file);
 static void show_usage();
 
 static const int MAXBUFSIZ = BUFSIZ * 4;
@@ -54,97 +62,144 @@ int main(int ac, char *av[])
 		}
 	}
 
-	ssize_t rfd = 0;
-	ssize_t wfd = 0;
-
-	char buf[MAXBUFSIZ];
-	ssize_t n = 0;
-
-	char *fsrc = av[ac-2];
-	char *fdst = av[ac-1];
-	char dst_buf[strlen(fsrc)+strlen(fdst)+3];
-	strcpy(dst_buf, fdst);
-	strcat(dst_buf, "/");
-	strcat(dst_buf, fsrc);
-
-	if ((rfd = open(fsrc, O_RDONLY)) == -1) {
-		perror("open");
-		goto error;
-	}
+	char *src_path = av[ac-2];
+	char *dst_path = av[ac-1];
 
 	if (is_file_overwrite) {
-		int overwrite = overwrite_file(fdst);
+		int overwrite = overwrite_file(dst_path);
 
 		if (overwrite == -1)
-			goto error;
+			exit(EXIT_FAILURE);
 
 		if (overwrite == 0) {
 			fprintf(stderr, "not overwritten\n");
-			goto success;
+			exit(EXIT_SUCCESS);
 		}
 	}
 
-	mode_t mode = 0;
-	if (access(fdst, F_OK) != -1) {
-		struct stat sb;
-		if (stat(fdst, &sb) == -1) {
-			perror("stat");
-			goto error;
-		}
-		mode = sb.st_mode;
+	if (cpdir(src_path, dst_path) == -1)
+		exit(EXIT_FAILURE);
 
-		if (S_ISDIR(sb.st_mode)) {
-			if (stat(fsrc, &sb) == -1) {
-				perror("stat");
+	exit(EXIT_SUCCESS);
+}
+
+static int cpdir(char *src_path, char *dst_path)
+{
+	struct dirent *d_ptr = NULL;
+	char *path = NULL;
+	const int src_len = strlen(src_path);
+
+	errno = 0;
+	DIR *dir = opendir(src_path);
+	if (dir == NULL) {
+		if (errno == ENOTDIR) { /* suppose that it's a file. */
+			if (cpf(src_path, NULL, dst_path) == -1) {
 				goto error;
 			}
-			mode = sb.st_mode;
-			fdst = dst_buf;
+			return 0;
 		}
 	}
-	if (mode == 0)
-		mode = 0644;
 
-	if ((wfd = creat(fdst, mode)) == -1) {
-		perror("creat");
+	for (;;) {
+		errno = 0;
+		d_ptr = readdir(dir);
+		if (d_ptr == NULL) {
+			if (errno == 0)
+				break;
+
+			perror("readdir");
+			goto error;
+		}
+
+		if (d_ptr->d_name[0] == '.')
+			continue;
+
+		path = (char *) malloc(src_len + strlen(d_ptr->d_name) + 3);
+		strcpy(path, src_path);
+		if (*(src_path + src_len - 1) != '/') {
+			strcat(path, "/");
+		}
+		strcat(path, d_ptr->d_name);
+
+		if (cpf(path, d_ptr->d_name, dst_path) == -1)
+			goto error;
+
+		free(path);
+	}
+
+	if (closedir(dir) == -1) {
+		perror("closedir");
+		return -1;
+	}
+
+	return 0;
+
+error:
+	free(path);
+	if (dir != NULL) {
+		if (closedir(dir) == -1) {
+			perror("closedir");
+		}
+	}
+	return -1;
+}
+
+static int cpf(char *src_path, char *src_name, char *dst_path)
+{
+	const int dst_len = strlen(dst_path);
+	char dst_buf[strlen(src_path) + dst_len + 3];
+
+	strcpy(dst_buf, dst_path);
+	if (*(dst_path + dst_len - 1) != '/') {
+		strcat(dst_buf, "/");
+	}
+	if (src_name == NULL)
+		strcat(dst_buf, src_path);
+	else
+		strcat(dst_buf, src_name);
+
+	if (access(dst_path, F_OK) != -1) {
+		struct stat dsb;
+		if (stat(dst_path, &dsb) == -1) {
+			fprintf(stderr, "cannot stat '%s'\n", dst_path);
+			perror("stat");
+			return -1;
+		}
+
+		if (S_ISDIR(dsb.st_mode))
+			dst_path = dst_buf;
+	}
+
+	FILE *fin = fopen(src_path, "r");
+	if (fin == NULL) {
+		fprintf(stderr, "cannot open '%s'\n", src_path);
+		perror("fopen");
 		goto error;
 	}
 
-	while ((n = read(rfd, buf, MAXBUFSIZ)) > 0) {
-		if ((write(wfd, buf, n)) != n) {
-			perror("write");
-			goto error;
-		}
+	FILE *fout = fopen(dst_path, "w");
+	if (fout == NULL) {
+		fprintf(stderr, "cannot open '%s'\n", dst_path);
+		perror("fopen");
+		goto error;
 	}
-	goto success;
 
-success:
-	gc(rfd, fsrc, wfd, fdst) == -1 ? exit(EXIT_FAILURE) : exit(EXIT_SUCCESS);
+	if (write_from_to(fin, fout) == -1)
+		goto error;
+
+	return gc(fin, src_path, fout, dst_path);
 
 error:
-	gc(rfd, fsrc, wfd, fdst);
-	exit(EXIT_FAILURE);
-}
-
-static int gc(int rfd, char *r_file, int wfd, char *w_file)
-{
-	int is_err = 0;
-
-	if (rfd != -1) {
-		if ((close(rfd)) == -1) {
-			is_err = -1;
-			perror(r_file);
-		}
+	if (fin != NULL) {
+		if (fclose(fin) == -1)
+			perror("fclose");
 	}
 
-	if (wfd != -1) {
-		if ((close(wfd)) == -1) {
-			is_err = -1;
-			perror(w_file);
-		}
+	if (fout != NULL) {
+		if (fclose(fout) == -1)
+			perror("fclose");
 	}
-
-	return is_err;
+	return -1;
 }
 
 static int overwrite_file(char *filename)
@@ -157,20 +212,20 @@ static int overwrite_file(char *filename)
 
 		tty = fopen("/dev/tty", "r");
 		if (tty == NULL) {
-			perror("/dev/tty");
+			perror("fopen");
 			goto error;
 		}
 
 		int c = getc(tty);
 		if (ferror(tty) != 0) {
-			perror("/dev/tty");
+			perror("getc");
 			goto error;
 		}
 
 		if (tolower(c) != 'y') {
 			// not overwritten
 			if (fclose(tty) == EOF) {
-				perror("/dev/tty");
+				perror("fclose");
 				return -1;
 			}
 			return 0;
@@ -179,7 +234,7 @@ static int overwrite_file(char *filename)
 
 	if (tty != NULL) {
 		if (fclose(tty) == EOF) {
-			perror("/dev/tty");
+			perror("fclose");
 			return -1;
 		}
 	}
@@ -188,12 +243,31 @@ static int overwrite_file(char *filename)
 
 error:
 	if (tty != NULL)
-		if (fclose(tty) == EOF) {
-			perror("/dev/tty");
-			return -1;
-		}
+		if (fclose(tty) == EOF)
+			perror("fclose");
 
 	return -1;
+}
+
+static int gc(FILE *rf, char *r_file, FILE *wf, char *w_file)
+{
+	int is_err = 0;
+
+	if (rf != NULL) {
+		if ((fclose(rf)) == -1) {
+			is_err = -1;
+			perror("fclose");
+		}
+	}
+
+	if (wf != NULL) {
+		if ((fclose(wf)) == -1) {
+			is_err = -1;
+			perror("fclose");
+		}
+	}
+
+	return is_err;
 }
 
 static void show_usage()

@@ -412,21 +412,3 @@ error:
 	}
 	return -1;
 }
-
-static ssize_t write_from_to(FILE *src, FILE *dst)
-{
-	char buf[BUFSIZ*4];
-	const int buf_len = BUFSIZ*4;
-	ssize_t n = 0;
-	ssize_t w_len = 0;
-
-	while ((n = fread(buf, 1, buf_len, src)) > 0) {
-		if (fwrite(buf, 1, n, dst) != n) {
-			perror("fwrite");
-			return -1;
-		}
-		w_len += n;
-	}
-
-	return w_len;
-}
