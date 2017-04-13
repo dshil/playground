@@ -21,12 +21,16 @@
 		6. Inode option.
 		7. Dereference option.
 		8. Recursive option.
-		9. Reverse order option.
-		10. Disable sorting option.
 */
 
-static int
-r_dir(char *dirname, int lead_dot, int long_format, int is_sort);
+struct lsparam {
+	char *dirname;
+	int lead_dot;
+	int long_format;
+	char sort;
+};
+
+static int r_dir(struct lsparam *p);
 
 static int
 print_dir_info(char **names, int nmemb, char *dirname, int long_format);
@@ -40,34 +44,42 @@ static char *uid_to_name(uid_t uid);
 static int parse_mode(char *buf, mode_t m);
 
 static int stringcmp(const void *p1, const void *p2);
+static int rev_stringcmp(const void *p1, const void *p2);
 
 int main(int ac, char *av[])
 {
+	struct lsparam param;
+	param.lead_dot = 0;
+	param.long_format = 0;
+	param.sort = 'n';
+	param.dirname = NULL;
+
 	int opt = 0;
-	int lead_dot = 0;
-	int long_format = 0;
-	int is_sort = 1;
-	while((opt = getopt(ac, av, "alU")) != -1) {
+	while((opt = getopt(ac, av, "alUr")) != -1) {
 		switch(opt) {
-			case 'a': lead_dot = 1; break;
-			case 'l': long_format = 1; break;
-			case 'U': is_sort = 0; break;
+			case 'a': param.lead_dot = 1; break;
+			case 'l': param.long_format = 1; break;
+			case 'U': param.sort = 'd'; break;
+			case 'r': param.sort = 'r'; break;
 			default:
 				  exit(EXIT_FAILURE);
 		}
 	}
 
 	if (ac == optind) {
-		if (r_dir(".", lead_dot, long_format, is_sort) == -1)
+		param.dirname = ".";
+		if (r_dir(&param) == -1)
 			exit(EXIT_FAILURE);
 	} else if ((ac - optind) == 1) {
 		av += optind;
-		if (r_dir(*av, lead_dot, long_format, is_sort) == -1)
+		param.dirname = *av;
+		if (r_dir(&param) == -1)
 			exit(EXIT_FAILURE);
 	} else {
 		while(--ac >= optind) {
 			printf("%s\n", *++av);
-			if (r_dir(*av, lead_dot, long_format, is_sort) == -1)
+			param.dirname = *av;
+			if (r_dir(&param) == -1)
 				exit(EXIT_FAILURE);
 		}
 	}
@@ -75,19 +87,18 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int
-r_dir(char *dirname, int lead_dot, int long_format, int is_sort)
+static int r_dir(struct lsparam *p)
 {
 	errno = 0;
-	DIR *dir = opendir(dirname);
+	DIR *dir = opendir(p->dirname);
 	if (dir == NULL && errno != ENOTDIR) {
 		perror("opendir");
 		goto error;
 	}
 
 	if (errno == ENOTDIR) { /* suppose that it's a file */
-		char *data[] = {dirname};
-		if (print_dir_info(data, 1, dirname, long_format) == -1)
+		char *data[] = {p->dirname};
+		if (print_dir_info(data, 1, p->dirname, p->long_format) == -1)
 			goto error;
 
 		return 0;
@@ -110,16 +121,18 @@ r_dir(char *dirname, int lead_dot, int long_format, int is_sort)
 			goto error;
 		}
 
-		if (d_ptr->d_name[0] == '.' && !lead_dot)
+		if (d_ptr->d_name[0] == '.' && !p->lead_dot)
 			continue;
 
 		names[nname++] = d_ptr->d_name;
 	}
 
-	if (is_sort)
+	if (p->sort == 'n')
 		qsort(names, nname, sizeof(char *), stringcmp);
+	if (p->sort == 'r')
+		qsort(names, nname, sizeof(char *), rev_stringcmp);
 
-	if (print_dir_info(names, nname, dirname, long_format) == -1)
+	if (print_dir_info(names, nname, p->dirname, p->long_format) == -1)
 		goto error;
 	goto success;
 
@@ -258,5 +271,32 @@ static int parse_mode(char *buf, mode_t m)
 
 static int stringcmp(const void *p1, const void *p2)
 {
-	return strcasecmp(* (char * const *) p1, * (char * const *) p2);
+	// p1, p2 in the realiaty are `char **`
+	// strcasecmp expects to get `const char *`
+	// *(char * const *) = char * const = const char *
+	const char *s1 = *((char * const *) p1);
+	const char *s2 = *((char * const *) p2);
+	return strcasecmp(s1, s2);
+}
+
+static int rev_stringcmp(const void *p1, const void *p2)
+{
+	char *s1 = *((char **) p1);
+	char *s2 = *((char **) p2);
+
+	char c1 = 0;
+	char c2 = 0;
+	for (;;) {
+		c1 = tolower(*s1++);
+		c2 = tolower(*s2++);
+
+		if (c1 == c2)
+			if (c1 == '\0')
+				break;
+			else
+				continue;
+		return (c1 > c2) ? -1 : 1;
+	}
+
+	return -1;
 }
