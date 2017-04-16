@@ -74,7 +74,6 @@ int main(int ac, char *av[])
 		f.dir = ".";
 		f.rootdir = 1;
 		fstraverse(".", &f);
-		free(f.names);
 	} else {
 		char **files = av + optind;
 		struct flags nf;
@@ -84,6 +83,7 @@ int main(int ac, char *av[])
 		}
 	}
 
+	free(f.names);
 	exit(EXIT_SUCCESS);
 }
 
@@ -185,13 +185,21 @@ static void fstraverse(char *fname, struct flags *f)
 	}
 
 	struct stat sb;
-	char buf[strlen(fname)+strlen(f->dir)+3];
-	if (strcmp(fname, ".") == 0) {
-		strcpy(buf, fname);
-	} else {
+	int bl = strlen(fname) + 1;
+	if (f->dir != NULL)
+		bl += strlen(f->dir) + 1;
+
+	int cmp = strcmp(fname, ".");
+	if (!cmp)
+		bl += 1;
+
+	char buf[bl];
+	if (cmp && f->dir != NULL) {
 		strcpy(buf, f->dir);
 		strcat(buf, "/");
 		strcat(buf, fname);
+	} else {
+		strcpy(buf, fname);
 	}
 
 	if (stat(buf, &sb) == -1) {
