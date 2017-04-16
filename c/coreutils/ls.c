@@ -21,7 +21,6 @@
 		4. Directory option.
 		6. Inode option.
 		7. Dereference option.
-		8. Recursive option.
 */
 
 struct flags {
@@ -37,16 +36,15 @@ struct flags {
 	size_t nidx; /* current number of file names */
 	size_t nsize; /* max number of file names */
 	char **names; /* files names */
+	blkcnt_t bcnt; /* number of 512B blocks allocated */
 };
 
-static void
-dirwalk(char *dirname, struct flags *f, void (*fcn)(char *, struct flags *));
-
+static void dirwalk(struct flags *f, void (*fcn)(char *, struct flags *));
 static void fstraverse(char *dir, struct flags *f);
 static void init_flag(struct flags *f); /* default flag initialization */
 static void new_flag(struct flags *src, struct flags *dst);
-
 static void finfo(char *buf, char *name, struct stat *sb);
+
 static char* mode_to_str(mode_t m);
 static char *gid_to_name(gid_t gid);
 static char *uid_to_name(uid_t uid);
@@ -103,6 +101,7 @@ static void init_flag(struct flags *f)
 	f->dir = NULL;
 	f->deep = 0;
 	f->rootdir = 0;
+	f->bcnt = 0;
 }
 
 static void new_flag(struct flags *src, struct flags *dst)
@@ -114,14 +113,13 @@ static void new_flag(struct flags *src, struct flags *dst)
 	dst->deep = src->deep;
 }
 
-static void
-dirwalk(char *dirname, struct flags *f, void (*fcn)(char *, struct flags *))
+static void dirwalk(struct flags *f, void (*fcn)(char *, struct flags *))
 {
 	errno = 0;
-	DIR *dir = opendir(dirname);
+	DIR *dir = opendir(f->dir);
 	if (dir == NULL) {
 		fprintf(stderr, "opendir, err=");
-		perror(dirname);
+		perror(f->dir);
 		goto exit;
 	}
 
@@ -164,9 +162,17 @@ static void fstraverse(char *fname, struct flags *f)
 		if (f->sort == 'r')
 			qsort(f->names, f->nidx, sizeof(char *), rev_stringcmp);
 
+		if (f->deep)
+			printf("%s:\n", f->dir);
+
+		if (f->format) {
+			// f->bcnt - number of 512B blocks allocated. We're interested in
+			// the number of 1024B blocks allocated.
+			printf("total %d\n", f->bcnt/2);
+		}
+
 		int i = 0;
 		char *name = NULL;
-		printf("%s:\n", f->dir);
 		while (f->nidx-- > 0) {
 			name = f->names[i++];
 			printf("%s\n", name);
@@ -199,7 +205,7 @@ static void fstraverse(char *fname, struct flags *f)
 			struct flags nf;
 			new_flag(f, &nf);
 			nf.dir = buf;
-			dirwalk(buf, &nf, fstraverse);
+			dirwalk(&nf, fstraverse);
 			return;
 		}
 	}
@@ -227,8 +233,9 @@ static void fstraverse(char *fname, struct flags *f)
 		strcpy(name, fname);
 	}
 	f->names[f->nidx++] = name;
+	f->bcnt += sb.st_blocks;
 
-	// ls file
+	// ls a file
 	if (f->dir == NULL) {
 		f->eod = 1;
 		fstraverse(NULL, f);
@@ -272,50 +279,6 @@ static char *mode_to_str(mode_t m)
 	if (m & S_ISVTX) buf[9] = 't';
 
 	return buf;
-}
-
-static int print_long_format(char **names, int nmemb, char *dirname)
-{
-	blkcnt_t bcnt = 0;
-	struct stat sb;
-	char mode_buf[11];
-
-	char *fullname = NULL;
-	const int dirname_len = strlen(dirname);
-
-	while (nmemb-- > 0) {
-		fullname = (char *) malloc(strlen(*names) + dirname_len + 2);
-		strcpy(fullname, dirname);
-		strcat(fullname, "/");
-		strcat(fullname, *names);
-
-		if (stat(fullname, &sb) == -1) {
-			perror("stat");
-			goto error;
-		}
-		bcnt += sb.st_blocks;
-
- //		if (parse_mode(mode_buf, sb.st_mode) == -1)
- //			goto error;
-
-		printf("%s %4d %-8s %-8s %8ld %.12s %s\n",
-				mode_buf,
-				sb.st_nlink,
-				uid_to_name(sb.st_uid),
-				gid_to_name(sb.st_gid),
-				sb.st_size,
-				4+ctime(&sb.st_mtime),
-				*names);
-
-		names++;
-		free(fullname);
-	}
-	printf("total %d\n", bcnt/2);
-	return 0;
-
-error:
-	free(fullname);
-	return -1;
 }
 
 static char *uid_to_name(uid_t uid)
