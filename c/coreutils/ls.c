@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/limits.h>
 
 /*
 	TODO:
@@ -17,157 +18,234 @@
 		2. Colorful output (to distinguish dir and file).
 		3. Sort option.
 		4. Author option.
-		5. Directory option.
+		4. Directory option.
 		6. Inode option.
 		7. Dereference option.
 		8. Recursive option.
 */
 
-struct lsparam {
+struct flags {
 	char *dirname;
 	int lead_dot;
 	int long_format;
-	char sort;
+
+	int dot; /* print or not the hidden files */
+	int eod; /* the last entry in the directory - we can print */
+	char *dir; /* parent dir */
+	char sort; /* the sorting type */
+	int format; /* true - use long format, else - short format */
+	size_t nidx; /* current number of file names */
+	size_t nsize; /* max number of file names */
+	char **names; /* files names */
 };
 
-static int r_dir(struct lsparam *p);
+static void
+dirwalk(char *dirname, struct flags *f, void (*fcn)(char *, struct flags *));
 
-static int
-print_dir_info(char **names, int nmemb, char *dirname, int long_format);
+static void fstraverse(char *dir, struct flags *f);
+static void init_flag(struct flags *f); /* default flag initialization */
+static void new_flag(struct flags *src, struct flags *dst);
 
-static void print_short_format(char **names, int nmemb);
-static int print_long_format(char **names, int nmemb, char *dirname);
-
+static void finfo(char *buf, char *name, struct stat *sb);
+static char* mode_to_str(mode_t m);
 static char *gid_to_name(gid_t gid);
 static char *uid_to_name(uid_t uid);
-
-static int parse_mode(char *buf, mode_t m);
 
 static int stringcmp(const void *p1, const void *p2);
 static int rev_stringcmp(const void *p1, const void *p2);
 
 int main(int ac, char *av[])
 {
-	struct lsparam param;
-	param.lead_dot = 0;
-	param.long_format = 0;
-	param.sort = 'n';
-	param.dirname = NULL;
+	struct flags f;
+	init_flag(&f);
 
 	int opt = 0;
 	while((opt = getopt(ac, av, "alUr")) != -1) {
 		switch(opt) {
-			case 'a': param.lead_dot = 1; break;
-			case 'l': param.long_format = 1; break;
-			case 'U': param.sort = 'd'; break;
-			case 'r': param.sort = 'r'; break;
+			case 'a': f.lead_dot = 1; break;
+			case 'l': f.long_format = 1; break;
+			case 'U': f.sort = 'd'; break;
+			case 'r': f.sort = 'r'; break;
 			default:
 				  exit(EXIT_FAILURE);
 		}
 	}
 
-	if (ac == optind) {
-		param.dirname = ".";
-		if (r_dir(&param) == -1)
-			exit(EXIT_FAILURE);
-	} else if ((ac - optind) == 1) {
-		av += optind;
-		param.dirname = *av;
-		if (r_dir(&param) == -1)
-			exit(EXIT_FAILURE);
+	printf("debug, optind=%d, ac=%d\n", optind, ac);
+
+	if (ac == 1) {
+		fstraverse(".", &f);
 	} else {
-		while(--ac >= optind) {
-			printf("%s\n", *++av);
-			param.dirname = *av;
-			if (r_dir(&param) == -1)
-				exit(EXIT_FAILURE);
-		}
+		char **files = av + optind;
+		while (--ac >= optind)
+			fstraverse(*files++, &f);
 	}
 
+	free(f.names);
 	exit(EXIT_SUCCESS);
 }
 
-static int r_dir(struct lsparam *p)
+static void init_flag(struct flags *f)
+{
+	f->names = (char **) malloc(1 * sizeof(char *));
+	if (f->names == NULL) { /* handle the malloc error */ }
+
+	f->nidx = 0;
+	f->nsize = 1;
+	f->sort = 'n';
+	f->format = 0;
+	f->dot = 0;
+	f->eod = 0;
+	f->dir = NULL;
+}
+
+static void new_flag(struct flags *src, struct flags *dst)
+{
+	init_flag(dst);
+	dst->sort = src->sort;
+	dst->format = src->format;
+	dst->dot = src->dot;
+}
+
+static void
+dirwalk(char *dirname, struct flags *f, void (*fcn)(char *, struct flags *))
 {
 	errno = 0;
-	DIR *dir = opendir(p->dirname);
-	if (dir == NULL && errno != ENOTDIR) {
+	DIR *dir = opendir(dirname);
+	if (dir == NULL) {
 		perror("opendir");
-		goto error;
+		goto exit;
 	}
 
-	if (errno == ENOTDIR) { /* suppose that it's a file */
-		char *data[] = {p->dirname};
-		if (print_dir_info(data, 1, p->dirname, p->long_format) == -1)
-			goto error;
-
-		return 0;
-	}
-
-	// TODO: optimize want
-	char *names[1000];
-	int nname = 0;
-
-	struct dirent *d_ptr = NULL;
-
+	struct dirent *dp = NULL;
 	for(;;) {
 		errno = 0;
-		d_ptr = readdir(dir);
-		if (d_ptr == NULL) {
-			if (errno == 0)
+		dp = readdir(dir);
+		if (dp == NULL) {
+			if (errno == 0) {
+				f->eod = 1;
+				(*fcn)(NULL, f);
 				break;
+			}
 
 			perror("readdir");
-			goto error;
+			goto exit;
 		}
 
-		if (d_ptr->d_name[0] == '.' && !p->lead_dot)
+		if (strcmp(dp->d_name, ".") == 0
+			|| strcmp(dp->d_name, "..") == 0)
 			continue;
 
-		names[nname++] = d_ptr->d_name;
+		(*fcn)(dp->d_name, f);
 	}
+	goto exit;
 
-	if (p->sort == 'n')
-		qsort(names, nname, sizeof(char *), stringcmp);
-	if (p->sort == 'r')
-		qsort(names, nname, sizeof(char *), rev_stringcmp);
-
-	if (print_dir_info(names, nname, p->dirname, p->long_format) == -1)
-		goto error;
-	goto success;
-
-success:
-	if (closedir(dir) == -1) {
-		perror("closedir");
-		goto error;
-	}
-	return 0;
-
-error:
+exit:
 	if (dir != NULL) {
-		if (closedir(dir) == -1) {
+		if (closedir(dir) == -1)
 			perror("closedir");
-		}
 	}
-	return -1;
+	return;
 }
 
-static int
-print_dir_info(char **names, int nmemb, char *dirname, int long_format)
+static void fstraverse(char *dir, struct flags *f)
 {
-	if (long_format) {
-		if (print_long_format(names, nmemb, dirname) == -1)
-			return -1;
-	} else
-		print_short_format(names, nmemb);
+	if (f->eod) {
+		if (f->sort == 'n')
+			qsort(f->names, f->nidx, sizeof(char *), stringcmp);
+		if (f->sort == 'r')
+			qsort(f->names, f->nidx, sizeof(char *), rev_stringcmp);
 
-	return 0;
+		int i = 0;
+		char *name = NULL;
+		while (f->nidx-- > 0) {
+			name = f->names[i++];
+			printf("%s\n", name);
+			free(name);
+		}
+
+		f->eod = 0;
+		free(f->names);
+		return;
+	}
+
+	struct stat sb;
+
+	if (stat(dir, &sb) == -1) {
+		perror(dir);
+		return;
+	}
+
+	if (S_ISDIR(sb.st_mode)) {
+		struct flags nf;
+		new_flag(f, &nf);
+		nf.dir = dir;
+		dirwalk(dir, &nf, fstraverse);
+		return;
+	}
+
+	if (f->nidx >= f->nsize) { /* grow the array of file names */
+		size_t nz = f->nsize*2;
+		char **nnames = (char **) realloc(f->names, nz * sizeof(char *));
+		if (nnames == NULL) { /* handle the realloc error */ }
+		f->names = nnames;
+		f->nsize = nz;
+	}
+
+	if (dir[0] == '.')
+		if  (!f->dot)
+			return;
+
+	char *name = NULL;
+	if (f->format) {
+		name = (char *) malloc(BUFSIZ * sizeof(char *));
+		if (name == NULL) { /* handle the malloc error */ }
+		finfo(name, dir, &sb);
+	} else {
+		name = (char *) malloc((strlen(dir) + 1) * sizeof(char *));
+		if (name == NULL) { /* handle the malloc error */ }
+		strcpy(name, dir);
+	}
+	f->names[f->nidx++] = name;
 }
 
-static void print_short_format(char **names, int nmemb)
+static void finfo(char *buf, char *name, struct stat *sb)
 {
-	while (nmemb-- > 0)
-		printf("%s\n", *names++);
+	sprintf(buf, "%s %4d %-8s %-8s %8ld %.12s %s",
+			mode_to_str(sb->st_mode),
+			sb->st_nlink,
+			uid_to_name(sb->st_uid),
+			gid_to_name(sb->st_gid),
+			sb->st_size,
+			4+ctime(&sb->st_mtime),
+			name);
+}
+
+static char *mode_to_str(mode_t m)
+{
+	static char buf[11];
+	strcpy(buf, "----------");
+
+	if (S_ISDIR(m)) buf[0] = 'd';
+	if (S_ISCHR(m)) buf[0] = 'c';
+	if (S_ISBLK(m)) buf[0] = 'b';
+
+	if (m & S_IRUSR) buf[1] = 'r';
+	if (m & S_IWUSR) buf[2] = 'w';
+	if (m & S_IXUSR) buf[3] = 'x';
+	if (m & S_ISUID) buf[3] = 's';
+
+	if (m & S_IRGRP) buf[4] = 'r';
+	if (m & S_IWGRP) buf[5] = 'w';
+	if (m & S_IXGRP) buf[6] = 'x';
+	if (m & S_ISGID) buf[6] = 's';
+
+	if (m & S_IROTH) buf[7] = 'r';
+	if (m & S_IWOTH) buf[8] = 'w';
+	if (m & S_IXOTH) buf[9] = 'x';
+	if (m & S_ISVTX) buf[9] = 't';
+
+	return buf;
 }
 
 static int print_long_format(char **names, int nmemb, char *dirname)
@@ -191,8 +269,8 @@ static int print_long_format(char **names, int nmemb, char *dirname)
 		}
 		bcnt += sb.st_blocks;
 
-		if (parse_mode(mode_buf, sb.st_mode) == -1)
-			goto error;
+ //		if (parse_mode(mode_buf, sb.st_mode) == -1)
+ //			goto error;
 
 		printf("%s %4d %-8s %-8s %8ld %.12s %s\n",
 				mode_buf,
@@ -273,9 +351,8 @@ static int stringcmp(const void *p1, const void *p2)
 {
 	// p1, p2 in the realiaty are `char **`
 	// strcasecmp expects to get `const char *`
-	// *(char * const *) = char * const = const char *
-	const char *s1 = *((char * const *) p1);
-	const char *s2 = *((char * const *) p2);
+	const char *s1 = *((char **) p1);
+	const char *s2 = *((char **) p2);
 	return strcasecmp(s1, s2);
 }
 
