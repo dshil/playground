@@ -25,15 +25,15 @@
 */
 
 struct flags {
-	char *dirname;
-	int lead_dot;
-	int long_format;
-
 	int dot; /* print or not the hidden files */
-	int eod; /* the last entry in the directory - we can print */
-	char *dir; /* parent dir */
 	char sort; /* the sorting type */
 	int format; /* true - use long format, else - short format */
+
+	char *dir; /* parent dir */
+	int deep; /* list subdirs recursively */
+	int rootdir;
+
+	int eod; /* the last entry in the directory - we can print */
 	size_t nidx; /* current number of file names */
 	size_t nsize; /* max number of file names */
 	char **names; /* files names */
@@ -60,18 +60,21 @@ int main(int ac, char *av[])
 	init_flag(&f);
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "alUr")) != -1) {
+	while((opt = getopt(ac, av, "alUrR")) != -1) {
 		switch(opt) {
 			case 'a': f.dot = 1; break;
 			case 'l': f.format = 1; break;
 			case 'U': f.sort = 'd'; break;
 			case 'r': f.sort = 'r'; break;
+			case 'R': f.deep = 1; break;
 			default:
 				  exit(EXIT_FAILURE);
 		}
 	}
 
 	if (ac == optind) {
+		f.dir = ".";
+		f.rootdir = 1;
 		fstraverse(".", &f);
 		free(f.names);
 	} else {
@@ -98,6 +101,8 @@ static void init_flag(struct flags *f)
 	f->dot = 0;
 	f->eod = 0;
 	f->dir = NULL;
+	f->deep = 0;
+	f->rootdir = 0;
 }
 
 static void new_flag(struct flags *src, struct flags *dst)
@@ -106,6 +111,7 @@ static void new_flag(struct flags *src, struct flags *dst)
 	dst->sort = src->sort;
 	dst->format = src->format;
 	dst->dot = src->dot;
+	dst->deep = src->deep;
 }
 
 static void
@@ -114,7 +120,8 @@ dirwalk(char *dirname, struct flags *f, void (*fcn)(char *, struct flags *))
 	errno = 0;
 	DIR *dir = opendir(dirname);
 	if (dir == NULL) {
-		perror("opendir");
+		fprintf(stderr, "opendir, err=");
+		perror(dirname);
 		goto exit;
 	}
 
@@ -149,7 +156,7 @@ exit:
 	return;
 }
 
-static void fstraverse(char *dir, struct flags *f)
+static void fstraverse(char *fname, struct flags *f)
 {
 	if (f->eod) {
 		if (f->sort == 'n')
@@ -159,6 +166,7 @@ static void fstraverse(char *dir, struct flags *f)
 
 		int i = 0;
 		char *name = NULL;
+		printf("%s:\n", f->dir);
 		while (f->nidx-- > 0) {
 			name = f->names[i++];
 			printf("%s\n", name);
@@ -171,18 +179,29 @@ static void fstraverse(char *dir, struct flags *f)
 	}
 
 	struct stat sb;
+	char buf[strlen(fname)+strlen(f->dir)+3];
+	if (strcmp(fname, ".") == 0) {
+		strcpy(buf, fname);
+	} else {
+		strcpy(buf, f->dir);
+		strcat(buf, "/");
+		strcat(buf, fname);
+	}
 
-	if (stat(dir, &sb) == -1) {
-		perror(dir);
+	if (stat(buf, &sb) == -1) {
+		fprintf(stderr, "stat, err=");
+		perror(fname);
 		return;
 	}
 
-	if (S_ISDIR(sb.st_mode)) {
-		struct flags nf;
-		new_flag(f, &nf);
-		nf.dir = dir;
-		dirwalk(dir, &nf, fstraverse);
-		return;
+	if (f->rootdir || f->deep) {
+		if (S_ISDIR(sb.st_mode)) {
+			struct flags nf;
+			new_flag(f, &nf);
+			nf.dir = buf;
+			dirwalk(buf, &nf, fstraverse);
+			return;
+		}
 	}
 
 	if (f->nidx >= f->nsize) { /* grow the array of file names */
@@ -193,7 +212,7 @@ static void fstraverse(char *dir, struct flags *f)
 		f->nsize = nz;
 	}
 
-	if (dir[0] == '.')
+	if (fname[0] == '.')
 		if  (!f->dot)
 			return;
 
@@ -201,11 +220,11 @@ static void fstraverse(char *dir, struct flags *f)
 	if (f->format) {
 		name = (char *) malloc(BUFSIZ * sizeof(char *));
 		if (name == NULL) { /* handle the malloc error */ }
-		finfo(name, dir, &sb);
+		finfo(name, fname, &sb);
 	} else {
-		name = (char *) malloc((strlen(dir) + 1) * sizeof(char *));
+		name = (char *) malloc((strlen(fname) + 1) * sizeof(char *));
 		if (name == NULL) { /* handle the malloc error */ }
-		strcpy(name, dir);
+		strcpy(name, fname);
 	}
 	f->names[f->nidx++] = name;
 
@@ -323,35 +342,6 @@ static char *gid_to_name(gid_t gid)
 	}
 
 	return gp->gr_name;
-}
-
-static int parse_mode(char *buf, mode_t m)
-{
-	if (strcpy(buf, "----------") == NULL) {
-		perror("strcpy");
-		return -1;
-	}
-
-	if (S_ISDIR(m)) buf[0] = 'd';
-	if (S_ISCHR(m)) buf[0] = 'c';
-	if (S_ISBLK(m)) buf[0] = 'b';
-
-	if (m & S_IRUSR) buf[1] = 'r';
-	if (m & S_IWUSR) buf[2] = 'w';
-	if (m & S_IXUSR) buf[3] = 'x';
-	if (m & S_ISUID) buf[3] = 's';
-
-	if (m & S_IRGRP) buf[4] = 'r';
-	if (m & S_IWGRP) buf[5] = 'w';
-	if (m & S_IXGRP) buf[6] = 'x';
-	if (m & S_ISGID) buf[6] = 's';
-
-	if (m & S_IROTH) buf[7] = 'r';
-	if (m & S_IWOTH) buf[8] = 'w';
-	if (m & S_IXOTH) buf[9] = 'x';
-	if (m & S_ISVTX) buf[9] = 't';
-
-	return 0;
 }
 
 static int stringcmp(const void *p1, const void *p2)
