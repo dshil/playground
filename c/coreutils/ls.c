@@ -62,8 +62,8 @@ int main(int ac, char *av[])
 	int opt = 0;
 	while((opt = getopt(ac, av, "alUr")) != -1) {
 		switch(opt) {
-			case 'a': f.lead_dot = 1; break;
-			case 'l': f.long_format = 1; break;
+			case 'a': f.dot = 1; break;
+			case 'l': f.format = 1; break;
 			case 'U': f.sort = 'd'; break;
 			case 'r': f.sort = 'r'; break;
 			default:
@@ -71,17 +71,18 @@ int main(int ac, char *av[])
 		}
 	}
 
-	printf("debug, optind=%d, ac=%d\n", optind, ac);
-
-	if (ac == 1) {
+	if (ac == optind) {
 		fstraverse(".", &f);
+		free(f.names);
 	} else {
 		char **files = av + optind;
-		while (--ac >= optind)
-			fstraverse(*files++, &f);
+		struct flags nf;
+		while (--ac >= optind) {
+			new_flag(&f, &nf);
+			fstraverse(*files++, &nf);
+		}
 	}
 
-	free(f.names);
 	exit(EXIT_SUCCESS);
 }
 
@@ -207,6 +208,12 @@ static void fstraverse(char *dir, struct flags *f)
 		strcpy(name, dir);
 	}
 	f->names[f->nidx++] = name;
+
+	// ls file
+	if (f->dir == NULL) {
+		f->eod = 1;
+		fstraverse(NULL, f);
+	}
 }
 
 static void finfo(char *buf, char *name, struct stat *sb)
