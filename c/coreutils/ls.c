@@ -30,7 +30,6 @@ struct flags {
 
 	char *dir; /* parent dir */
 	int deep; /* list subdirs recursively */
-	int rootdir;
 
 	int eod; /* the last entry in the directory - we can print */
 	size_t nidx; /* current number of file names */
@@ -71,8 +70,6 @@ int main(int ac, char *av[])
 	}
 
 	if (ac == optind) {
-		f.dir = ".";
-		f.rootdir = 1;
 		fstraverse(".", &f);
 	} else {
 		char **files = av + optind;
@@ -100,7 +97,6 @@ static void init_flag(struct flags *f)
 	f->eod = 0;
 	f->dir = NULL;
 	f->deep = 0;
-	f->rootdir = 0;
 	f->bcnt = 0;
 }
 
@@ -208,8 +204,8 @@ static void fstraverse(char *fname, struct flags *f)
 		return;
 	}
 
-	if (f->rootdir || f->deep) {
-		if (S_ISDIR(sb.st_mode)) {
+	if (S_ISDIR(sb.st_mode)) {
+		if (f->deep || f->dir == NULL) {
 			struct flags nf;
 			new_flag(f, &nf);
 			nf.dir = buf;
