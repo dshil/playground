@@ -80,17 +80,14 @@ int main(int ac, char *av[])
 		}
 	}
 
-	free(f.names);
 	exit(EXIT_SUCCESS);
 }
 
 static void init_flag(struct flags *f)
 {
-	f->names = (char **) malloc(1 * sizeof(char *));
-	if (f->names == NULL) { /* handle the malloc error */ }
-
+	f->names = NULL;
 	f->nidx = 0;
-	f->nsize = 1;
+	f->nsize = 0;
 	f->sort = 'n';
 	f->format = 0;
 	f->dot = 0;
@@ -214,17 +211,25 @@ static void fstraverse(char *fname, struct flags *f)
 		}
 	}
 
-	if (f->nidx >= f->nsize) { /* grow the array of file names */
-		size_t nz = f->nsize*2;
-		char **nnames = (char **) realloc(f->names, nz * sizeof(char *));
-		if (nnames == NULL) { /* handle the realloc error */ }
-		f->names = nnames;
-		f->nsize = nz;
-	}
-
 	if (fname[0] == '.')
 		if  (!f->dot)
 			return;
+
+	if (f->nsize == 0) {
+		// it's a first time, need to alloc some memory
+		char **names = (char **) malloc(1 * sizeof(char *));
+		if (names == NULL) { /* handle the malloc error */ }
+		f->names = names;
+		f->nsize = 1;
+	}
+
+	if (f->nidx >= f->nsize) { /* grow the array of file names */
+		size_t nsz = f->nsize*2;
+		char **names = (char **) realloc(f->names, nsz * sizeof(char *));
+		if (names == NULL) { /* handle the realloc error */ }
+		f->names = names;
+		f->nsize = nsz;
+	}
 
 	char *name = NULL;
 	if (f->format) {
@@ -239,7 +244,7 @@ static void fstraverse(char *fname, struct flags *f)
 	f->names[f->nidx++] = name;
 	f->bcnt += sb.st_blocks;
 
-	// ls a file
+	// ls <filename>
 	if (f->dir == NULL) {
 		f->eod = 1;
 		fstraverse(NULL, f);
