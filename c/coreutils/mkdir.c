@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,7 +9,7 @@
 
 static void usage(char *progname);
 static int is_valid_mode(char *s);
-static int mkdir_all(char *dir, mode_t m);
+static int mkdir_all(char *dir, mode_t mode);
 
 int main(int ac, char *av[])
 {
@@ -39,7 +40,7 @@ int main(int ac, char *av[])
 		fprintf(stderr, "%s: missing operand\n", av[0]);
 		exit(EXIT_FAILURE);
 	} else if ((ac - optind) == 1) {
-		char *dir = *(av+optind);
+		char *dir = *(av + optind);
 		if (deep) {
 			if (mkdir_all(dir, mask) == -1)
 				exit(EXIT_FAILURE);
@@ -66,7 +67,7 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int mkdir_all(char *dir, mode_t m)
+static int mkdir_all(char *dir, mode_t mode)
 {
 	char *p = NULL, *q = NULL;
 	char path[PATH_MAX];
@@ -75,10 +76,13 @@ static int mkdir_all(char *dir, mode_t m)
 		strcat(path, p);
 		strcat(path, "/");
 
-		if (mkdir(path, m) == -1) {
-			fprintf(stderr, "mkdir, err = ");
-			perror(path);
-			return -1;
+		errno = 0;
+		if (mkdir(path, mode) == -1) {
+			if (errno != EEXIST) {
+				fprintf(stderr, "mkdir, err = ");
+				perror(path);
+				return -1;
+			}
 		}
 	}
 
