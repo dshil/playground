@@ -27,6 +27,7 @@ struct flags {
 	int dot; /* print or not the hidden files */
 	char sort; /* the sorting type */
 	int format; /* true - use long format, else - short format */
+	int inode; /* print inode number or not */
 
 	char *dir; /* parent dir */
 	int deep; /* list subdirs recursively */
@@ -42,9 +43,9 @@ static void dirwalk(struct flags *f, void (*fcn)(char *, struct flags *));
 static void fstraverse(char *dir, struct flags *f);
 static void init_flag(struct flags *f); /* default flag initialization */
 static void new_flag(struct flags *src, struct flags *dst);
-static void finfo(char *buf, char *name, struct stat *sb);
+static void finfo(int print_inode, char *buf, char *name, struct stat *sb);
 
-static char* mode_to_str(mode_t m);
+static void mode_to_str(mode_t m, char *buf);
 static char *gid_to_name(gid_t gid);
 static char *uid_to_name(uid_t uid);
 
@@ -57,13 +58,14 @@ int main(int ac, char *av[])
 	init_flag(&f);
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "alUrR")) != -1) {
+	while((opt = getopt(ac, av, "aliUrR")) != -1) {
 		switch(opt) {
 			case 'a': f.dot = 1; break;
 			case 'l': f.format = 1; break;
 			case 'U': f.sort = 'd'; break;
 			case 'r': f.sort = 'r'; break;
 			case 'R': f.deep = 1; break;
+			case 'i': f.inode = 1; break;
 			default:
 				  exit(EXIT_FAILURE);
 		}
@@ -95,6 +97,7 @@ static void init_flag(struct flags *f)
 	f->dir = NULL;
 	f->deep = 0;
 	f->bcnt = 0;
+	f->inode = 0;
 }
 
 static void new_flag(struct flags *src, struct flags *dst)
@@ -104,6 +107,7 @@ static void new_flag(struct flags *src, struct flags *dst)
 	dst->format = src->format;
 	dst->dot = src->dot;
 	dst->deep = src->deep;
+	dst->inode = src->inode;
 }
 
 static void dirwalk(struct flags *f, void (*fcn)(char *, struct flags *))
@@ -235,11 +239,19 @@ static void fstraverse(char *fname, struct flags *f)
 	if (f->format) {
 		name = (char *) malloc(BUFSIZ * sizeof(char *));
 		if (name == NULL) { /* handle the malloc error */ }
-		finfo(name, fname, &sb);
+		finfo(f->inode, name, fname, &sb);
 	} else {
-		name = (char *) malloc((strlen(fname) + 1) * sizeof(char *));
-		if (name == NULL) { /* handle the malloc error */ }
-		strcpy(name, fname);
+		if (f->inode) {
+			static const int max_inode_num_cnt = 20;
+			int len = strlen(fname) + 1 + max_inode_num_cnt;
+			name = (char *) malloc(len * sizeof(char *));
+			if (name == NULL) { /* handle the malloc error */ }
+			sprintf(name, "%d %s", sb.st_ino, fname);
+		} else {
+			name = (char *) malloc((strlen(fname) + 1) * sizeof(char *));
+			if (name == NULL) { /* handle the malloc error */ }
+			sprintf(name, "%s", fname);
+		}
 	}
 	f->names[f->nidx++] = name;
 	f->bcnt += sb.st_blocks;
@@ -251,21 +263,34 @@ static void fstraverse(char *fname, struct flags *f)
 	}
 }
 
-static void finfo(char *buf, char *name, struct stat *sb)
+static void finfo(int print_inode, char *buf, char *name, struct stat *sb)
 {
-	sprintf(buf, "%s %4d %-8s %-8s %8ld %.12s %s",
-			mode_to_str(sb->st_mode),
-			sb->st_nlink,
-			uid_to_name(sb->st_uid),
-			gid_to_name(sb->st_gid),
-			sb->st_size,
-			4+ctime(&sb->st_mtime),
-			name);
+	static char smode[11];
+	mode_to_str(sb->st_mode, smode);
+
+	if (print_inode)
+		sprintf(buf, "%d %s %4d %-8s %-8s %8ld %.12s %s",
+				sb->st_ino,
+				smode,
+				sb->st_nlink,
+				uid_to_name(sb->st_uid),
+				gid_to_name(sb->st_gid),
+				sb->st_size,
+				4+ctime(&sb->st_mtime),
+				name);
+	else
+		sprintf(buf, "%s %4d %-8s %-8s %8ld %.12s %s",
+				smode,
+				sb->st_nlink,
+				uid_to_name(sb->st_uid),
+				gid_to_name(sb->st_gid),
+				sb->st_size,
+				4+ctime(&sb->st_mtime),
+				name);
 }
 
-static char *mode_to_str(mode_t m)
+static void mode_to_str(mode_t m, char *buf)
 {
-	static char buf[11];
 	strcpy(buf, "----------");
 
 	if (S_ISDIR(m)) buf[0] = 'd';
@@ -286,8 +311,6 @@ static char *mode_to_str(mode_t m)
 	if (m & S_IWOTH) buf[8] = 'w';
 	if (m & S_IXOTH) buf[9] = 'x';
 	if (m & S_ISVTX) buf[9] = 't';
-
-	return buf;
 }
 
 static char *uid_to_name(uid_t uid)
