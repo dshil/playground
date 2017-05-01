@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <termios.h>
 
 /*
  * Fix hardcoded nrows, ncols.
@@ -8,6 +10,7 @@
 
 static int more(FILE *fin, FILE *tty);
 static size_t linesnum(FILE *tty);
+static int reset_tty_settings(FILE *tty, struct termios *attr);
 
 static const int nrows = 24;
 static const int ncols = 80;
@@ -17,6 +20,20 @@ int main(int ac, char *av[])
 	FILE *tty = fopen("/dev/tty", "r");
 	if (tty == NULL) {
 		perror("/dev/tty");
+		goto error;
+	}
+
+	struct termios attr;
+	if (tcgetattr(fileno(tty), &attr) == -1) {
+		perror("tcgetattr");
+		goto error;
+	}
+
+	attr.c_lflag &= ~ECHO;
+	attr.c_lflag &= ~ICANON;
+
+	if (tcsetattr(fileno(tty), TCSANOW, &attr) == -1) {
+		perror("tcsetattr");
 		goto error;
 	}
 
@@ -51,6 +68,9 @@ int main(int ac, char *av[])
 		}
 	}
 
+	if (reset_tty_settings(tty, &attr) == -1)
+		goto error;
+
 	if (tty != NULL) {
 		if (fclose(tty) == EOF) {
 			fprintf(stderr, "fclose, err = ");
@@ -61,6 +81,8 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 
 error:
+	reset_tty_settings(tty, &attr);
+
 	if (fin != NULL) {
 		if (fclose(fin) == EOF) {
 			perror("fclose");
@@ -133,6 +155,17 @@ static size_t linesnum(FILE *tty)
 		} else if (c == '\n') {
 			return 1;
 		}
+	}
+	return 0;
+}
+
+static int reset_tty_settings(FILE *tty, struct termios *attr)
+{
+	attr->c_lflag |= ECHO;
+	attr->c_lflag |= ICANON;
+	if (tcsetattr(fileno(tty), TCSANOW, attr) == -1) {
+		perror("tcsetattr");
+		return -1;
 	}
 	return 0;
 }
