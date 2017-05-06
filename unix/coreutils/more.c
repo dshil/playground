@@ -1,31 +1,37 @@
 #include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <termios.h>
 #include <sys/ioctl.h>
-#include <fcntl.h>
 
 static int more(FILE *fin, FILE *tty);
 static size_t linesnum(FILE *tty);
 static int tty_mode(FILE *tty, int mode);
+static int set_signal_handler(void);
+static void tstp_handler(int signum);
+static void set_term_winsz(void);
+static void handle_sig(int signum);
 
 static int nrows = 24;
 static int ncols = 80;
+static FILE *tty = NULL;
 
 int main(int ac, char *av[])
 {
-	FILE *tty = fopen("/dev/tty", "r");
+	if (set_signal_handler() == -1)
+		exit(EXIT_FAILURE);
+
+	tty = fopen("/dev/tty", "r");
 	if (tty == NULL) {
 		perror("/dev/tty");
 		goto error;
 	}
 
-	struct winsize wbuf;
-	if (ioctl(fileno(tty), TIOCGWINSZ, &wbuf) != -1) {
-		nrows = wbuf.ws_row;
-		ncols = wbuf.ws_col;
-	}
+	set_term_winsz();
 
 	if (tty_mode(tty, 0) == -1)
 		goto error;
@@ -38,7 +44,6 @@ int main(int ac, char *av[])
 
 	attr.c_lflag &= ~ECHO;
 	attr.c_lflag &= ~ICANON;
-	attr.c_cc[VMIN] = 1;
 
 	if (tcsetattr(fileno(tty), TCSANOW, &attr) == -1) {
 		perror("tcsetattr");
@@ -195,4 +200,64 @@ static int tty_mode(FILE *tty, int mode)
 	}
 
 	return 0;
+}
+
+static int set_signal_handler(void)
+{
+	int sigs[] = {SIGINT, SIGCONT, SIGWINCH};
+	const int siglen = sizeof(sigs)/sizeof(int);
+
+	for (int i = 0; i < siglen; i++) {
+		errno = 0;
+		signal(sigs[i], handle_sig);
+		if (errno) {
+			perror("signal");
+			return -1;
+		}
+	}
+
+	struct sigaction tstp_action;
+	tstp_action.sa_handler = tstp_handler;
+	tstp_action.sa_flags = SA_RESETHAND;
+	if (sigaction(SIGTSTP, &tstp_action, NULL) == -1) {
+		perror("sigaction");
+		return -1;
+	}
+
+	return 0;
+}
+
+static void handle_sig(int signum)
+{
+	switch (signum) {
+		case SIGINT:
+			// tcsh and bash will reset the terminal settings to default
+			// if the process will be interrupted by the signal, but let's not
+			// relay on this.
+			if (tty_mode(tty, 1) == -1)
+				exit(EXIT_FAILURE);
+			exit(EXIT_SUCCESS);
+		case SIGCONT:
+			break;
+		case SIGWINCH:
+			set_term_winsz();
+			break;
+	}
+}
+
+static void set_term_winsz(void)
+{
+	struct winsize wbuf;
+	if (ioctl(fileno(tty), TIOCGWINSZ, &wbuf) != -1) {
+		nrows = wbuf.ws_row;
+		ncols = wbuf.ws_col;
+	}
+}
+
+static void tstp_handler(int signum)
+{
+	if (kill(getpid(), SIGTSTP) == -1) {
+		perror("kill");
+		exit(EXIT_FAILURE);
+	}
 }
