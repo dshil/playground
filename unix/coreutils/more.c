@@ -3,17 +3,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <termios.h>
-
-/*
- * Fix hardcoded nrows, ncols.
- */
+#include <sys/ioctl.h>
 
 static int more(FILE *fin, FILE *tty);
 static size_t linesnum(FILE *tty);
 static int reset_tty_settings(FILE *tty, struct termios *attr);
 
-static const int nrows = 24;
-static const int ncols = 80;
+static int nrows = 24;
+static int ncols = 80;
 
 int main(int ac, char *av[])
 {
@@ -21,6 +18,12 @@ int main(int ac, char *av[])
 	if (tty == NULL) {
 		perror("/dev/tty");
 		goto error;
+	}
+
+	struct winsize wbuf;
+	if (ioctl(fileno(tty), TIOCGWINSZ, &wbuf) != -1) {
+		nrows = wbuf.ws_row;
+		ncols = wbuf.ws_col;
 	}
 
 	struct termios attr;
