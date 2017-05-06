@@ -4,10 +4,11 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include <fcntl.h>
 
 static int more(FILE *fin, FILE *tty);
 static size_t linesnum(FILE *tty);
-static int reset_tty_settings(FILE *tty, struct termios *attr);
+static int tty_mode(FILE *tty, int mode);
 
 static int nrows = 24;
 static int ncols = 80;
@@ -26,6 +27,9 @@ int main(int ac, char *av[])
 		ncols = wbuf.ws_col;
 	}
 
+	if (tty_mode(tty, 0) == -1)
+		goto error;
+
 	struct termios attr;
 	if (tcgetattr(fileno(tty), &attr) == -1) {
 		perror("tcgetattr");
@@ -34,6 +38,7 @@ int main(int ac, char *av[])
 
 	attr.c_lflag &= ~ECHO;
 	attr.c_lflag &= ~ICANON;
+	attr.c_cc[VMIN] = 1;
 
 	if (tcsetattr(fileno(tty), TCSANOW, &attr) == -1) {
 		perror("tcsetattr");
@@ -52,6 +57,7 @@ int main(int ac, char *av[])
 		for (i = 1; i < ac; i++) {
 			if (av[i] == NULL)
 				continue;
+			printf("==> %s <==\n", av[i]);
 
 			fin = fopen(av[i], "r");
 			if (fin == NULL) {
@@ -71,7 +77,7 @@ int main(int ac, char *av[])
 		}
 	}
 
-	if (reset_tty_settings(tty, &attr) == -1)
+	if (tty_mode(tty, 1) == -1)
 		goto error;
 
 	if (tty != NULL) {
@@ -84,7 +90,7 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 
 error:
-	reset_tty_settings(tty, &attr);
+	tty_mode(tty, 1);
 
 	if (fin != NULL) {
 		if (fclose(fin) == EOF) {
@@ -162,13 +168,31 @@ static size_t linesnum(FILE *tty)
 	return 0;
 }
 
-static int reset_tty_settings(FILE *tty, struct termios *attr)
+static int tty_mode(FILE *tty, int mode)
 {
-	attr->c_lflag |= ECHO;
-	attr->c_lflag |= ICANON;
-	if (tcsetattr(fileno(tty), TCSANOW, attr) == -1) {
-		perror("tcsetattr");
-		return -1;
+	static struct termios orig_mode;
+	static int orig_flags;
+	if (mode == 0) {
+		if (tcgetattr(fileno(tty), &orig_mode) == -1) {
+			perror("tcgetattr");
+			return -1;
+		}
+
+		if ((orig_flags = fcntl(fileno(tty), F_GETFL)) == -1) {
+			perror("fcntl");
+			return -1;
+		}
+	} else {
+		if (tcsetattr(fileno(tty), TCSANOW, &orig_mode) == -1) {
+			perror("tcsetattr");
+			return -1;
+		}
+
+		if (fcntl(fileno(tty), F_SETFL, orig_flags) == -1) {
+			perror("fcntl");
+			return -1;
+		}
 	}
+
 	return 0;
 }
