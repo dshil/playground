@@ -237,18 +237,18 @@ static void fstraverse(char *fname, struct flags *f)
 
 	char *name = NULL;
 	if (f->format) {
-		name = (char *) malloc(BUFSIZ * sizeof(char *));
+		name = (char *) malloc(BUFSIZ);
 		if (name == NULL) { /* handle the malloc error */ }
 		finfo(f->inode, name, fname, &sb);
 	} else {
 		if (f->inode) {
 			static const int max_inode_num_cnt = 20;
 			int len = strlen(fname) + 1 + max_inode_num_cnt;
-			name = (char *) malloc(len * sizeof(char *));
+			name = (char *) malloc(len);
 			if (name == NULL) { /* handle the malloc error */ }
 			sprintf(name, "%d %s", sb.st_ino, fname);
 		} else {
-			name = (char *) malloc((strlen(fname) + 1) * sizeof(char *));
+			name = (char *) malloc(strlen(fname) + 1);
 			if (name == NULL) { /* handle the malloc error */ }
 			sprintf(name, "%s", fname);
 		}
