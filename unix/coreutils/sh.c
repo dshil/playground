@@ -17,7 +17,7 @@ static char** arglist_from_line(char *line);
 static void free_arglist(char **al);
 
 static void sig_handler(int signum);
-static int set_signals(void);
+static void set_signals(void);
 
 static char *get_host(void);
 static char *get_curr_dir(void);
@@ -29,8 +29,7 @@ static char *host = NULL;
 
 int main(int ac, char *av[])
 {
-	if (set_signals() == -1)
-		exit(EXIT_FAILURE);
+	set_signals();
 
 	if ((tty_name = getlogin()) == NULL) {
 		perror("getlogin");
@@ -90,6 +89,9 @@ static int execute(char **av)
 		perror("fork");
 		return -1;
 	} else if (pid == 0) {
+		signal(SIGINT, SIG_DFL);
+		signal(SIGQUIT, SIG_DFL);
+
 		if (execvp(av[0], av) == -1) {
 			perror("execvp");
 			return -1;
@@ -178,22 +180,13 @@ static void free_arglist(char **al)
 	free(al);
 }
 
-static int set_signals(void)
+static void set_signals(void)
 {
-	struct sigaction act;
-	act.sa_handler = sig_handler;
-	act.sa_flags = SA_RESTART;
-
 	int sigs[] = {SIGINT, SIGQUIT};
 	const int sig_num = sizeof(sigs)/sizeof(int);
 	int i = 0;
-	for (; i < sig_num; i++) {
-		if (sigaction(sigs[i], &act, NULL) == -1) {
-			perror("sigaction");
-			return -1;
-		}
-	}
-	return 0;
+	for (; i < sig_num; i++)
+		signal(sigs[i], sig_handler);
 }
 
 static void sig_handler(int signum)
