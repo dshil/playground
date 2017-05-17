@@ -11,17 +11,17 @@
 #include <linux/limits.h>
 
 static int execute(char **av);
-static char **init_arglist(int sz);
-static char** grow_arglist(char **al, int sz);
-static char** arglist_from_line(char *line);
-static void free_arglist(char **al);
+static char **init_list(int sz);
+static char** grow_list(char **al, int sz);
+static char** list_from_line(char *line, const char *delim);
+static void free_list(char **al);
 
 static void sig_handler(int signum);
 static void set_signals(void);
 
 static char *get_host(void);
 static char *get_curr_dir(void);
-static void welcome_msg(void);
+static void prompt(void);
 
 static char *tty_name = NULL;
 static char *cur_dir = NULL;
@@ -43,11 +43,14 @@ int main(int ac, char *av[])
 		exit(EXIT_FAILURE);
 
 	char **arglist = NULL;
+	char **cmds = NULL;
+	char **cmds_cp = NULL;
+	char *cmd = NULL;
 	char *line = NULL;
 	size_t cap = 0;
 
 	for (;;) {
-		welcome_msg();
+		prompt();
 
 		if (getline(&line, &cap, stdin) == -1) {
 			perror("getline");
@@ -58,18 +61,30 @@ int main(int ac, char *av[])
 			continue;
 
 		if (strncmp(line, "exit", 4) == 0) {
+			printf("exit\n");
 			break;
 		}
 
-		if ((arglist = arglist_from_line(line)) == NULL)
-			goto error;
+		if ((cmds = list_from_line(line, ";")) == NULL)
+				goto error;
 
-		if (execute(arglist) == -1) {
-			free_arglist(arglist);
-			goto error;
+		cmds_cp = cmds;
+		while (*cmds_cp != NULL) {
+			if ((arglist = list_from_line(*cmds_cp, " ")) == NULL) {
+				free_list(cmds);
+				goto error;
+			}
+
+			if (execute(arglist) == -1) {
+				free_list(cmds);
+				free_list(arglist);
+				goto error;
+			}
+
+			cmds_cp++;
+			free_list(arglist);
 		}
-
-		free_arglist(arglist);
+		free_list(cmds);
 	}
 
 	free(line);
@@ -89,9 +104,6 @@ static int execute(char **av)
 		perror("fork");
 		return -1;
 	} else if (pid == 0) {
-		signal(SIGINT, SIG_DFL);
-		signal(SIGQUIT, SIG_DFL);
-
 		if (execvp(av[0], av) == -1) {
 			perror("execvp");
 			return -1;
@@ -107,7 +119,7 @@ static int execute(char **av)
 	return 0;
 }
 
-static char** arglist_from_line(char *line)
+static char** list_from_line(char *line, const char *delim)
 {
 	char *p = NULL;
 	char *q = NULL;
@@ -116,14 +128,14 @@ static char** arglist_from_line(char *line)
 	int sz = 1;
 	int len = 0;
 
-	char **al = init_arglist(sz);
+	char **al = init_list(sz);
 	if (al == NULL)
 		goto error;
 
-	for (q = line; (p = strtok(q, " ")) != NULL; q = NULL) {
+	for (q = line; (p = strtok(q, delim)) != NULL; q = NULL) {
 		if (idx == sz) {
 			sz *= 2;
-			if ((cp = grow_arglist(al, sz)) == NULL)
+			if ((cp = grow_list(al, sz)) == NULL)
 				goto error;
 			else
 				al = cp;
@@ -138,7 +150,7 @@ static char** arglist_from_line(char *line)
 	}
 
 	// Grow arglist last time to set the end of the list.
-	if ((cp = grow_arglist(al, sz + 1)) == NULL)
+	if ((cp = grow_list(al, sz + 1)) == NULL)
 		goto error;
 	al = cp;
 
@@ -146,11 +158,11 @@ static char** arglist_from_line(char *line)
 	return al;
 
 error:
-	free_arglist(al);
+	free_list(al);
 	return NULL;
 }
 
-static char **init_arglist(int sz)
+static char **init_list(int sz)
 {
 	char **al = (char **) malloc(sz * sizeof(char *));
 	if (al == NULL) {
@@ -160,7 +172,7 @@ static char **init_arglist(int sz)
 	return al;
 }
 
-static char** grow_arglist(char **al, int sz)
+static char** grow_list(char **al, int sz)
 {
 	if ((sz  * sizeof(char *)) > ARG_MAX) {
 		fprintf(stderr, "to long args\n");
@@ -175,7 +187,7 @@ static char** grow_arglist(char **al, int sz)
 	return cp;
 }
 
-static void free_arglist(char **al)
+static void free_list(char **al)
 {
 	free(al);
 }
@@ -193,12 +205,12 @@ static void sig_handler(int signum)
 {
 	if (signum == SIGINT || signum == SIGQUIT) {
 		printf("\n");
-		welcome_msg();
+		prompt();
 		fflush(stdout);
 	}
 }
 
-static void welcome_msg(void)
+static void prompt(void)
 {
 	printf("[%s@%s %s]$ ", tty_name, host, cur_dir);
 }
