@@ -12,9 +12,7 @@
 
 static int execute(char **av);
 static char **init_list(int sz);
-static char** grow_list(char **al, int sz);
 static char** list_from_line(char *line, const char *delim);
-static void free_list(char **al);
 
 static void sig_handler(int signum);
 static void set_signals(void);
@@ -71,20 +69,20 @@ int main(int ac, char *av[])
 		cmds_cp = cmds;
 		while (*cmds_cp != NULL) {
 			if ((arglist = list_from_line(*cmds_cp, " ")) == NULL) {
-				free_list(cmds);
+				free(cmds);
 				goto error;
 			}
 
 			if (execute(arglist) == -1) {
-				free_list(cmds);
-				free_list(arglist);
+				free(cmds);
+				free(arglist);
 				goto error;
 			}
 
 			cmds_cp++;
-			free_list(arglist);
+			free(arglist);
 		}
-		free_list(cmds);
+		free(cmds);
 	}
 
 	free(line);
@@ -135,10 +133,13 @@ static char** list_from_line(char *line, const char *delim)
 	for (q = line; (p = strtok(q, delim)) != NULL; q = NULL) {
 		if (idx == sz) {
 			sz *= 2;
-			if ((cp = grow_list(al, sz)) == NULL)
+
+			cp = realloc(al, sz * sizeof(char *));
+			if (cp == NULL) {
+				fprintf(stderr, "realloc, no memory\n");
 				goto error;
-			else
-				al = cp;
+			}
+			al = cp;
 		}
 
 		len = strlen(p);
@@ -149,16 +150,20 @@ static char** list_from_line(char *line, const char *delim)
 		al[idx++] = p;
 	}
 
-	// Grow arglist last time to set the end of the list.
-	if ((cp = grow_list(al, sz + 1)) == NULL)
-		goto error;
-	al = cp;
+	if (idx == sz) {
+		cp = realloc(al, (sz + 1) * sizeof(char *));
+		if (cp == NULL) {
+			fprintf(stderr, "realloc, no memory\n");
+			goto error;
+		}
+		al = cp;
+	}
 
 	al[idx] = NULL;
 	return al;
 
 error:
-	free_list(al);
+	free(al);
 	return NULL;
 }
 
@@ -170,26 +175,6 @@ static char **init_list(int sz)
 		return NULL;
 	}
 	return al;
-}
-
-static char** grow_list(char **al, int sz)
-{
-	if ((sz  * sizeof(char *)) > ARG_MAX) {
-		fprintf(stderr, "to long args\n");
-		return NULL;
-	}
-
-	char **cp = realloc(al, sz);
-	if (cp == NULL) {
-		fprintf(stderr, "realloc, no memory\n");
-		return NULL;
-	}
-	return cp;
-}
-
-static void free_list(char **al)
-{
-	free(al);
 }
 
 static void set_signals(void)
