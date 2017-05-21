@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <linux/limits.h>
 
-static int execute(char **av);
+static int execute(char **av, int *status);
 static char **init_list(int sz);
 static char** list_from_line(char *line, const char *delim);
 
@@ -47,7 +47,7 @@ static int exec_context(struct context *ctx);
 static void free_context(struct context *ctx);
 
 static void free_block(char **blk);
-static int exec_block(char **blk);
+static int exec_block(char **blk, int *status);
 static char **block_by_state(struct context *ctx);
 static void set_block_by_state(struct context *ctx, char **blk);
 static int is_eob(int idx, int sz); // check the end of the commands block.
@@ -110,7 +110,7 @@ int main(int ac, char *av[])
 
 		if (is_control_cmd(line)) {
 			if (!is_valid_cmd(&ctx, line)) {
-				fprintf(stderr, "%s: invalid control command %s after %s\n",
+				fprintf(stderr, "%s: invalid command `%s` after `%s`\n", av[0],
 						line, cmd_by_state(ctx.state));
 				goto error;
 			}
@@ -139,7 +139,7 @@ int main(int ac, char *av[])
 				goto error;
 
 		if (ctx.state == def_state) {
-			if (exec_block(cmdline) == -1) {
+			if (exec_block(cmdline, NULL) == -1) {
 				free(cmdline);
 				goto error;
 			}
@@ -165,7 +165,7 @@ error:
 	exit(EXIT_FAILURE);
 }
 
-static int execute(char **av)
+static int execute(char **av, int *status)
 {
 	pid_t pid = 0;
 
@@ -179,8 +179,7 @@ static int execute(char **av)
 			return -1;
 		}
 	} else {
-		int chld_status = 0;
-		if (wait(&chld_status) == -1) {
+		if (wait(status) == -1) {
 			perror("wait");
 			return -1;
 		}
@@ -290,9 +289,9 @@ static int is_valid_cmd(struct context *ctx, char *cmd)
 	if (strcmp(cmd, "if") == 0)
 		return ctx->state == def_state;
 	if (strcmp(cmd, "then") == 0)
-		return ctx->state == if_state;
+		return ctx->state == if_state && ctx->if_block != NULL;
 	if (strcmp(cmd, "else") == 0)
-		return ctx->state == then_state;
+		return ctx->state == then_state && ctx->if_block != NULL;
 
 	return -1;
 }
@@ -330,7 +329,19 @@ static int add_cmd(struct context *ctx, char *cmd, int *sz, int *idx)
 
 static int exec_context(struct context *ctx)
 {
-	return exec_block(ctx->if_block);
+	int status = 0;
+	if (exec_block(ctx->if_block, &status) == -1)
+		return -1;
+
+	if (WIFEXITED(&status)) {
+		if (exec_block(ctx->then_block, &status) == -1)
+			return -1;
+	} else {
+		if (exec_block(ctx->else_block, &status) == -1)
+			return -1;
+	}
+
+	return 0;
 }
 
 static void free_context(struct context *ctx)
@@ -371,11 +382,6 @@ static void set_block_by_state(struct context *ctx, char **blk)
 		return;
 }
 
-static int is_eob(int idx, int sz)
-{
-	return idx != 0 && sz != 1;
-}
-
 static int add_eob(struct context *ctx, int idx, int sz)
 {
 	char **blk = block_by_state(ctx);
@@ -399,14 +405,14 @@ static int add_eob(struct context *ctx, int idx, int sz)
 	return 0;
 }
 
-static int exec_block(char **blk)
+static int exec_block(char **blk, int *status)
 {
 	char **arglist = NULL;
 	while (*blk != NULL) {
 		if ((arglist = list_from_line(*blk, " ")) == NULL)
 			return -1;
 
-		if (execute(arglist) == -1) {
+		if (execute(arglist, status) == -1) {
 			free(arglist);
 			return -1;
 		}
