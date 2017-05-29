@@ -12,7 +12,7 @@
 
 static int execute(char **av, int *status);
 static char **init_list(int sz);
-static char** list_from_line(char *line, const char *delim);
+static char** list_from_line(char *line, const char *delim, int *len);
 
 static void sig_handler(int signum);
 static void set_signals(void);
@@ -58,6 +58,18 @@ static int add_eob(struct context *ctx, int idx, int sz);
 static int is_control_cmd(char *cmd);
 static char *cmd_by_state(int state);
 static int is_valid_cmd(struct context *ctx, char *cmd);
+
+struct command {
+	char **args;
+	int fd_in;
+	int fd_out;
+};
+
+static int is_pipeline(char *line);
+static int process_pipeline(char *line);
+static int free_commands(struct command *cmds, int len);
+static int run_pipeline(struct command *cmds, int len);
+static int redirect_cmd_in_out(struct command *cmd);
 
 int main(int ac, char *av[])
 {
@@ -108,6 +120,12 @@ int main(int ac, char *av[])
 
 		trim_suffix(line);
 
+		if (is_pipeline(line)) {
+			if (process_pipeline(line) == -1)
+				goto error;
+			continue;
+		}
+
 		if (is_control_cmd(line)) {
 			if (!is_valid_cmd(&ctx, line)) {
 				fprintf(stderr, "%s: invalid command `%s` after `%s`\n", av[0],
@@ -135,7 +153,7 @@ int main(int ac, char *av[])
 			continue;
 		}
 
-		if ((cmdline = list_from_line(line, ";")) == NULL)
+		if ((cmdline = list_from_line(line, ";", NULL)) == NULL)
 				goto error;
 
 		if (ctx.state == def_state) {
@@ -163,6 +181,180 @@ error:
 	free(line);
 	free_context(&ctx);
 	exit(EXIT_FAILURE);
+}
+
+static int is_pipeline(char *line)
+{
+	return strchr(line, '|') != NULL;
+}
+
+/**
+ * process_pipeline parses the @line and creates a list of pipeline commands to
+ * run.
+ */
+static int process_pipeline(char *line)
+{
+	int len = 0;
+	char **list = list_from_line(line, "|", &len);
+	if (list == NULL)
+		return -1;
+
+	struct command cmds[len];
+	int idx = 0;
+
+	char **cp = list;
+	while (*cp != NULL) {
+		struct command c;
+		c.args = list_from_line(*cp, " ", NULL);
+		c.fd_in = -1;
+		c.fd_out = -1;
+
+		cmds[idx++] = c;
+		cp++;
+	}
+
+	int i = 0;
+	for (; i < len - 1; i++) {
+		int fds[2];
+		if (pipe(fds) == -1) {
+			perror("pipe");
+			goto error;
+		}
+		cmds[i].fd_out = fds[1];
+		cmds[i+1].fd_in = fds[0];
+	}
+
+	int proc_num = 0;
+	if ((proc_num = run_pipeline(cmds, len)) == -1)
+		goto error;
+
+	while (proc_num-- != 0) {
+		if (wait(NULL) == -1) {
+			perror("wait");
+			goto error;
+		}
+	}
+
+	free(list);
+	return free_commands(cmds, len);
+error:
+	free_commands(cmds, len);
+	free(list);
+	return -1;
+}
+
+/**
+ * run_pipeline runs the pipeline specified in the @cmds. @len stands for the
+ * number of commands to run in the pipeline. The commands are run in the
+ * reverse order to prevent writing to the pipe without any readers.
+ * On success the number of commands to wait will be returned, on error:
+ * - 1 will be returned and waits until previously started commands will be
+ * finished. The caller is responsible for waiting until all commands will be
+ * done.
+ */
+static int run_pipeline(struct command *cmds, int len)
+{
+	int proc_num = 0;
+	pid_t pid = 0;
+	int i = len - 1;
+
+	for (i; i >= 0; i--) {
+		pid = fork();
+		if (pid == -1) {
+			perror("fork");
+			return -1;
+		} else if (pid == 1) {
+			proc_num++;
+			continue;
+		}
+
+		if (redirect_cmd_in_out(&cmds[i]) == -1)
+			exit(EXIT_FAILURE);
+
+		if (execvp(cmds[i].args[0], cmds[i].args) == -1) {
+			perror("execvp");
+			return -1;
+		}
+	}
+
+	return proc_num;
+
+error:
+	while (proc_num-- != 0)
+		if (wait(NULL) == -1)
+			perror("wait");
+}
+
+/**
+ * redirect_cmd_in_out changes the stdin and stdout of the child process with
+ * provided in the @cmd.
+ */
+static int redirect_cmd_in_out(struct command *cmd)
+{
+	if (cmd->fd_in != -1) {
+		if (dup2(cmd->fd_in, STDIN_FILENO) == -1) {
+			perror("dup2");
+			goto error;
+		}
+
+		if (close(cmd->fd_in) == -1) {
+			perror("close");
+			cmd->fd_in = -1;
+			goto error;
+		}
+	}
+
+	if (cmd->fd_out != -1) {
+		if (dup2(cmd->fd_out, STDOUT_FILENO) == -1) {
+			perror("dup2");
+			goto error;
+		}
+
+		if (close(cmd->fd_out) == -1) {
+			perror("close");
+			cmd->fd_out = -1;
+			goto error;
+		}
+	}
+
+	return 0;
+
+error:
+	if (cmd->fd_in != -1)
+		if (close(cmd->fd_in) == -1)
+			perror("close");
+
+	if (cmd->fd_out != -1)
+		if (close(cmd->fd_out) == -1)
+			perror("close");
+
+	return -1;
+}
+
+/**
+ * free_commands frees the argument list of the command and closes both end of
+ * the pipe.
+ */
+static int free_commands(struct command *cmds, int len)
+{
+	int i = 0;
+	for (; i < len; i++) {
+		free(cmds[i].args);
+		if (cmds[i].fd_in != -1) {
+			if (close(cmds[i].fd_in) == -1) {
+				perror("close");
+				return -1;
+			}
+		}
+
+		if (cmds[i].fd_out != -1) {
+			if (close(cmds[i].fd_out) == -1) {
+				perror("close");
+				return -1;
+			}
+		}
+	}
+	return 0;
 }
 
 static int execute(char **av, int *status)
@@ -198,7 +390,7 @@ static char **init_list(int sz)
 	return al;
 }
 
-static char** list_from_line(char *line, const char *delim)
+static char** list_from_line(char *line, const char *delim, int *count)
 {
 	int sz = 1;
 	char **al = init_list(sz);
@@ -234,6 +426,9 @@ static char** list_from_line(char *line, const char *delim)
 		}
 		al = cp;
 	}
+
+	if (count != NULL)
+		*count = idx - 1;
 
 	al[idx] = NULL;
 	return al;
@@ -409,7 +604,7 @@ static int exec_block(char **blk, int *status)
 {
 	char **arglist = NULL;
 	while (*blk != NULL) {
-		if ((arglist = list_from_line(*blk, " ")) == NULL)
+		if ((arglist = list_from_line(*blk, " ", NULL)) == NULL)
 			return -1;
 
 		if (execute(arglist, status) == -1) {
