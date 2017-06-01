@@ -67,7 +67,8 @@ struct command {
 
 static int is_pipeline(char *line);
 static int process_pipeline(char *line);
-static int free_commands(struct command *cmds, int len);
+static int free_commands(struct command *cmds, int len, int started_num);
+static int free_command(struct command *cmd);
 static int run_pipeline(struct command *cmds, int len);
 static int redirect_cmd_in_out(struct command *cmd);
 
@@ -236,9 +237,9 @@ static int process_pipeline(char *line)
 	}
 
 	free(list);
-	return free_commands(cmds, len);
+	return 0;
 error:
-	free_commands(cmds, len);
+	free_commands(cmds, len, proc_num);
 	free(list);
 	return -1;
 }
@@ -262,18 +263,20 @@ static int run_pipeline(struct command *cmds, int len)
 		pid = fork();
 		if (pid == -1) {
 			perror("fork");
-			return -1;
-		} else if (pid == 1) {
+			goto error;
+		} else if (pid == 0) {
+			if (redirect_cmd_in_out(&cmds[i]) == -1)
+				exit(EXIT_FAILURE);
+
+			if (execvp(cmds[i].args[0], cmds[i].args) == -1) {
+				fprintf(stderr, "sh: %s: command not found...\n",
+						cmds[i].args[0]);
+				exit(EXIT_FAILURE);
+			}
+		} else {
+			if (free_command(&cmds[i]) == -1)
+				goto error;
 			proc_num++;
-			continue;
-		}
-
-		if (redirect_cmd_in_out(&cmds[i]) == -1)
-			exit(EXIT_FAILURE);
-
-		if (execvp(cmds[i].args[0], cmds[i].args) == -1) {
-			perror("execvp");
-			return -1;
 		}
 	}
 
@@ -333,28 +336,52 @@ error:
 
 /**
  * free_commands frees the argument list of the command and closes both end of
- * the pipe.
+ * the pipe. The freeing is performed in the reverse order, because procs are
+ * run in the reverse order.
+ * @started_num stands for number of successfully running procs, no need to
+ * free such commands.
  */
-static int free_commands(struct command *cmds, int len)
+static int free_commands(struct command *cmds, int len, int started_num)
 {
-	int i = 0;
-	for (; i < len; i++) {
-		free(cmds[i].args);
-		if (cmds[i].fd_in != -1) {
-			if (close(cmds[i].fd_in) == -1) {
-				perror("close");
-				return -1;
-			}
-		}
-
-		if (cmds[i].fd_out != -1) {
-			if (close(cmds[i].fd_out) == -1) {
-				perror("close");
-				return -1;
-			}
-		}
+	int i = len - started_num - 1;
+	for (; i >= 0; i--) {
+		if (free_command(&cmds[i]) == -1)
+			return -1;
 	}
 	return 0;
+}
+
+static int free_command(struct command *cmd)
+{
+	free(cmd->args);
+	if (cmd->fd_in != -1) {
+		if (close(cmd->fd_in) == -1) {
+			perror("close");
+			cmd->fd_in = -1;
+			goto error;
+		}
+	}
+
+	if (cmd->fd_out != -1) {
+		if (close(cmd->fd_out) == -1) {
+			perror("close");
+			cmd->fd_out = -1;
+			goto error;
+		}
+	}
+
+	return 0;
+
+error:
+	if (cmd->fd_in != -1)
+		if (close(cmd->fd_in) == -1)
+			perror("close");
+
+	if (cmd->fd_out != -1)
+		if (close(cmd->fd_out) == -1)
+			perror("close");
+
+	return -1;
 }
 
 static int execute(char **av, int *status)
@@ -367,7 +394,8 @@ static int execute(char **av, int *status)
 		return -1;
 	} else if (pid == 0) {
 		if (execvp(av[0], av) == -1) {
-			perror("execvp");
+			fprintf(stderr, "sh: %s: command not found...\n",
+					av[0]);
 			return -1;
 		}
 	} else {
@@ -428,7 +456,7 @@ static char** list_from_line(char *line, const char *delim, int *count)
 	}
 
 	if (count != NULL)
-		*count = idx - 1;
+		*count = idx;
 
 	al[idx] = NULL;
 	return al;
