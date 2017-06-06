@@ -246,20 +246,16 @@ error:
 
 /**
  * run_pipeline runs the pipeline specified in the @cmds. @len stands for the
- * number of commands to run in the pipeline. The commands are run in the
- * reverse order to prevent writing to the pipe without any readers.
- * On success the number of commands to wait will be returned, on error:
- * - 1 will be returned and waits until previously started commands will be
- * finished. The caller is responsible for waiting until all commands will be
- * done.
+ * number of commands to run in the pipeline. The caller is responsible for
+ * waiting until all commands will be done.
  */
 static int run_pipeline(struct command *cmds, int len)
 {
 	int proc_num = 0;
 	pid_t pid = 0;
-	int i = len - 1;
+	int i = 0;
 
-	for (i; i >= 0; i--) {
+	for (; i < len; i++) {
 		pid = fork();
 		if (pid == -1) {
 			perror("fork");
@@ -336,15 +332,14 @@ error:
 
 /**
  * free_commands frees the argument list of the command and closes both end of
- * the pipe. The freeing is performed in the reverse order, because procs are
- * run in the reverse order.
- * @started_num stands for number of successfully running procs, no need to
- * free such commands.
+ * the pipe. @started_num stands for number of successfully running procs, no
+ * need to free such commands.
  */
 static int free_commands(struct command *cmds, int len, int started_num)
 {
-	int i = len - started_num - 1;
-	for (; i >= 0; i--) {
+	int n = len - started_num - 1;
+	int i = 0;
+	for (; i < n; i++) {
 		if (free_command(&cmds[i]) == -1)
 			return -1;
 	}
