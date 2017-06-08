@@ -20,7 +20,6 @@ static int listen_file_changes(char *filename, int offset);
 static int handle_inotify_events(int ifd, char *filename, int *offset);
 
 static ssize_t write_from_path(char *filepath, int offset);
-static ssize_t write_from_to(FILE *src, FILE *dst);
 
 static int nlines = 10;
 static int nbytes = -1;
