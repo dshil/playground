@@ -146,30 +146,45 @@ static int dup2pipe(int to[], int from[])
 {
 	if (close(to[1]) == -1) {
 		perror("close");
-
-		close(to[0]);
-		pipe_close(from);
-
-		return -1;
+		goto error;
 	}
 
 	if (dup2(to[0], STDIN_FILENO) == -1) {
 		perror("dup2");
-		close(to[0]);
-		pipe_close(from);
+		goto error;
+	}
 
-		return -1;
+	if (close(to[0]) == -1) {
+		perror("close");
+		goto error;
 	}
 
 	if (close(from[0]) == -1) {
 		perror("close");
-		close(from[1]);
-		return -1;
+		goto error;
 	}
 
 	if (dup2(from[1], STDOUT_FILENO) == -1) {
 		perror("dup2");
-		close(from[1]);
-		return -1;
+		goto error;
 	}
+
+	if (close(from[1]) == -1) {
+		perror("close");
+		goto error;
+	}
+
+	return 0;
+
+error:
+	if (to[0] != -1)
+		close(to[0]);
+	if (to[1] != -1)
+		close(to[1]);
+	if (from[0] != -1)
+		close(from[0]);
+	if (from[1] != -1)
+		close(from[1]);
+
+	return -1;
 }
