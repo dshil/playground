@@ -2,24 +2,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
-static int pipe_open(int fds[]);
-static int pipe_close(int fds[]);
-static int dup2pipe(int to[], int from[]);
+static int pipe_close(int ch[]);
+static int dup2pipe(int ch[]);
 
 int main(int ac, char *av[])
 {
-	int to_dc[2];
-	int from_dc[2];
-
-	if (pipe(to_dc) == -1) {
-		perror("pipe");
-		exit(EXIT_FAILURE);
-	}
-
-	if (pipe(from_dc) == -1) {
-		perror("pipe");
-		pipe_close(to_dc);
+	int ch[2];
+	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, ch) == -1) {
+		perror("socketpair");
 		exit(EXIT_FAILURE);
 	}
 
@@ -31,23 +24,15 @@ int main(int ac, char *av[])
 
 	if (pid == -1) {
 		perror("fork");
-
-		pipe_close(to_dc);
-		pipe_close(from_dc);
-
+		pipe_close(ch);
 		exit(EXIT_FAILURE);
 	} else if (pid == 0) {
-		if (dup2pipe(to_dc, from_dc) == -1)
+		if (dup2pipe(ch) == -1)
 			exit(EXIT_FAILURE);
 		if (execlp("dc", "dc", "-", NULL) == -1)
 			exit(EXIT_FAILURE);
 	} else {
-		if (close(to_dc[0]) == -1) {
-			perror("close");
-			goto error;
-		}
-
-		if (close(from_dc[1]) == -1) {
+		if (close(ch[0]) == -1) {
 			perror("close");
 			goto error;
 		}
@@ -57,8 +42,8 @@ int main(int ac, char *av[])
 		int num1 = 0;
 		int num2 = 0;
 
-		fout = fdopen(to_dc[1], "w");
-		fin = fdopen(from_dc[0], "r");
+		fout = fdopen(ch[1], "w");
+		fin = fdopen(ch[1], "r");
 		if (fout == NULL || fin == NULL) {
 			perror("fdopen");
 			goto error;
@@ -117,24 +102,24 @@ error:
 		fclose(fin);
 	if (fout != NULL)
 		fclose(fout);
-	if (to_dc[0] != -1)
-		close(to_dc[0]);
-	if (from_dc[1] != -1)
-		close(from_dc[1]);
+	if (ch[0] != -1)
+		close(ch[0]);
+	if (ch[1] != -1)
+		close(ch[1]);
 
 	wait(NULL);
 	exit(EXIT_FAILURE);
 }
 
-static int pipe_close(int fds[])
+static int pipe_close(int ch[])
 {
-	if (close(fds[0]) == -1) {
+	if (close(ch[0]) == -1) {
 		perror("close");
-		close(fds[1]);
+		close(ch[1]);
 		return -1;
 	}
 
-	if (close(fds[1]) == -1) {
+	if (close(ch[1]) == -1) {
 		perror("close");
 		return -1;
 	}
@@ -142,34 +127,24 @@ static int pipe_close(int fds[])
 	return 0;
 }
 
-static int dup2pipe(int to[], int from[])
+static int dup2pipe(int ch[])
 {
-	if (close(to[1]) == -1) {
-		perror("close");
-		goto error;
-	}
-
-	if (dup2(to[0], STDIN_FILENO) == -1) {
+	if (dup2(ch[0], STDIN_FILENO) == -1) {
 		perror("dup2");
 		goto error;
 	}
 
-	if (close(to[0]) == -1) {
-		perror("close");
-		goto error;
-	}
-
-	if (close(from[0]) == -1) {
-		perror("close");
-		goto error;
-	}
-
-	if (dup2(from[1], STDOUT_FILENO) == -1) {
+	if (dup2(ch[0], STDOUT_FILENO) == -1) {
 		perror("dup2");
 		goto error;
 	}
 
-	if (close(from[1]) == -1) {
+	if (close(ch[0]) == -1) {
+		perror("close");
+		goto error;
+	}
+
+	if (close(ch[1]) == -1) {
 		perror("close");
 		goto error;
 	}
@@ -177,14 +152,9 @@ static int dup2pipe(int to[], int from[])
 	return 0;
 
 error:
-	if (to[0] != -1)
-		close(to[0]);
-	if (to[1] != -1)
-		close(to[1]);
-	if (from[0] != -1)
-		close(from[0]);
-	if (from[1] != -1)
-		close(from[1]);
-
+	if (ch[0] != -1)
+		close(ch[0]);
+	if (ch[1] != -1)
+		close(ch[1]);
 	return -1;
 }
