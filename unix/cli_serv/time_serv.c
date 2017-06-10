@@ -19,6 +19,8 @@ int proccess_req(int sock_fd)
 	fout = fdopen(fd, "w");
 	if (fout == NULL) {
 		perror("fdopen");
+		if (close(fd) == -1)
+			perror("close");
 		return -1;
 	}
 
