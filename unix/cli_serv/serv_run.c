@@ -21,7 +21,9 @@ int main(int ac, char *av[])
 		exit(EXIT_FAILURE);
 
 	int fd = 0;
+
 	fprintf(stderr, "start server, port=%d\n", port_num);
+
 	while(1) {
 		errno = 0;
 		fd = accept(sock_fd, NULL, NULL);
@@ -62,5 +64,6 @@ error:
 
 static void child_waiter(int sig)
 {
-	wait(NULL);
+	while (waitpid(-1, NULL, WNOHANG) > 0)
+		;
 }
