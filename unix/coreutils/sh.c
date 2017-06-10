@@ -107,6 +107,10 @@ int main(int ac, char *av[])
 			printf("> ");
 
 		if (getline(&line, &cap, stdin) == -1) {
+			if (feof(stdin)) {
+				printf("exit\n");
+				break;
+			}
 			perror("getline");
 			goto error;
 		}
