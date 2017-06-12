@@ -108,7 +108,7 @@ static int handle_http_req(int sock_fd)
 		}
 
 		if (do_path(sock_fd, path) == -1)
-			goto error;
+			return -1;
 	}
 
 	return 0;
