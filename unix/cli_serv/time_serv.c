@@ -32,5 +32,5 @@ int proccess_req(int sock_fd)
 		return -1;
 	}
 
-	// TODO: fix mem leak
+	return 0;
 }
