@@ -88,7 +88,9 @@ static int handle_http_req(int sock_fd)
 		return 0;
 	}
 
-	if (sscanf(buf, "%s %s %s", method, path, http_ver) != 3) {
+	strcpy(path, "./");
+
+	if (sscanf(buf, "%s %s %s", method, path+2, http_ver) != 3) {
 		bad_request(fout, "invalid request format");
 
 		if (fclose(fin) == -1 || fclose(fout) == -1) {
