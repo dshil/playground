@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "serv.h"
+#include "sock.h"
 
 static void child_waiter(int sig);
 
@@ -17,7 +17,7 @@ int main(int ac, char *av[])
 	int port_num = 8080;
 
 	int sock_fd = 0;
-	if ((sock_fd = make_serv_sock(port_num)) == -1)
+	if ((sock_fd = make_stream_sock(port_num)) == -1)
 		exit(EXIT_FAILURE);
 
 	int fd = 0;
