@@ -6,10 +6,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-static const int MAX_HOST_LEN = 256;
+#include "sock.h"
 
 static int make_net_addr(char *buf, int port, struct sockaddr_in *addr);
-static int make_sock(int port, int type);
+static int make_sock(int port, int conn_type);
 
 int make_stream_sock(int port)
 {
@@ -21,10 +21,10 @@ int make_dgram_sock(int port)
 	return make_sock(port, SOCK_DGRAM);
 }
 
-static int make_sock(int port, int type)
+static int make_sock(int port, int conn_type)
 {
 	int sock_fd = 0;
-	sock_fd = socket(AF_INET, type, 0);
+	sock_fd = socket(AF_INET, conn_type, 0);
 	if (sock_fd == -1) {
 		perror("socket");
 		return -1;
@@ -40,7 +40,7 @@ static int make_sock(int port, int type)
 		goto error;
 	}
 
-	if (type == SOCK_STREAM) {
+	if (conn_type == SOCK_STREAM) {
 		if (listen(sock_fd, 1) == -1) {
 			perror("listen");
 			goto error;
