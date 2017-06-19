@@ -8,7 +8,7 @@ void *cw(void *a);
 
 struct argset {
 	char *fname;
-	int cnt;
+	int bc;
 };
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -17,46 +17,46 @@ struct argset *mailbox;
 
 int main(int ac, char *av[])
 {
-	pthread_t t1, t2;
-	struct argset arg1, arg2;
-	arg1.fname = av[1];
-	arg1.cnt = 0;
-	arg2.fname = av[2];
-	arg2.cnt = 0;
-
-	int nc = 0;
-
+	char **fnames = av+1;
 	if (pthread_mutex_lock(&lock) == -1) {
 		perror("pthread_mutex_lock");
 		exit(EXIT_FAILURE);
 	}
 
-	if (pthread_create(&t1, NULL, cw, (void *)&arg1) == -1 ||
-		pthread_create(&t2, NULL, cw, (void *)&arg2) == -1) {
-		perror("pthread_create");
-		exit(EXIT_FAILURE);
+	pthread_t thrds[ac-1];
+	struct argset args[ac-1];
+	int i = 0;
+
+	for (; i < ac - 1; i++) {
+		args[i].fname = fnames[i];
+		args[i].bc = 0;
+
+		if (pthread_create(&thrds[i], NULL, cw, (void *)&args[i]) == -1) {
+			perror("pthread_create");
+			exit(EXIT_FAILURE);
+		}
 	}
 
-	while (nc < 2) {
+	int msg_num = 0;
+	while (msg_num < (ac - 1)) {
 		if (pthread_cond_wait(&flag, &lock) == -1) {
 			perror("pthread_cond_wait");
 			exit(EXIT_FAILURE);
 		}
 
-		if (mailbox == &arg1)
-			pthread_join(t1, NULL);
-		if (mailbox == &arg2)
-			pthread_join(t2, NULL);
-
-		printf("%s, %d\n", mailbox->fname,
-				mailbox->cnt);
+		printf("%d %s\n", mailbox->bc, mailbox->fname);
 
 		mailbox = NULL;
-		nc++;
+		msg_num++;
 
 		// Notify too fast thread that was tried to read not handled mailbox.
 		pthread_cond_signal(&flag);
 	}
+
+	for (i = 0; i < ac - 1; i++)
+		pthread_join(thrds[i], NULL);
+
+	exit(EXIT_SUCCESS);
 }
 
 void *cw(void *a)
@@ -80,7 +80,7 @@ void *cw(void *a)
 		if (feof(f))
 			break;
 
-		arg->cnt++;
+		arg->bc++;
 	}
 
 	if (fclose(f) == EOF) {
