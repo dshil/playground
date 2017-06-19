@@ -8,7 +8,9 @@ void *cw(void *a);
 
 struct argset {
 	char *fname;
-	int bc;
+	int bc; /* bytes counter */
+	int nlc; /* new lines counter */
+	int wc; /* words counter */
 };
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -30,6 +32,8 @@ int main(int ac, char *av[])
 	for (; i < ac - 1; i++) {
 		args[i].fname = fnames[i];
 		args[i].bc = 0;
+		args[i].nlc = 0;
+		args[i].wc = 0;
 
 		if (pthread_create(&thrds[i], NULL, cw, (void *)&args[i]) == -1) {
 			perror("pthread_create");
@@ -44,7 +48,8 @@ int main(int ac, char *av[])
 			exit(EXIT_FAILURE);
 		}
 
-		printf("%d %s\n", mailbox->bc, mailbox->fname);
+		printf("%d %d %d %s\n", mailbox->nlc, mailbox->wc, mailbox->bc,
+				mailbox->fname);
 
 		mailbox = NULL;
 		msg_num++;
@@ -69,6 +74,10 @@ void *cw(void *a)
 		return NULL;
 	}
 
+	static const int in_word_state = 0;
+	static const int out_word_state = 1;
+
+	int state = out_word_state;
 	int c = 0;
 	for (;;) {
 		c = fgetc(f);
@@ -80,6 +89,14 @@ void *cw(void *a)
 		if (feof(f))
 			break;
 
+		if (c == '\n')
+			arg->nlc++;
+		if (c == ' ' || c == '\t' || c == '\n')
+			state = out_word_state;
+		if (state == out_word_state) {
+			state = in_word_state;
+			arg->wc++;
+		}
 		arg->bc++;
 	}
 
