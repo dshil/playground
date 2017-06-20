@@ -48,6 +48,8 @@ int main(int ac, char *av[])
 		goto error;
 
 	long now = 0;
+	char *tm_str = NULL;
+	int len = 0;
 	while (1) {
 		// Break in case of SIGINT.
 		if (semset_id == -1 && seg_id == -1)
@@ -57,7 +59,13 @@ int main(int ac, char *av[])
 
 		if (wait_and_lock(semset_id) == -1)
 			goto error;
-		strcpy(memp, ctime(&now));
+
+		// No need to add '\n' in the end of string.
+		tm_str = ctime(&now);
+		len = strlen(tm_str);
+		tm_str[len-1] = '\0';
+		strcpy(memp, tm_str);
+
 		release_lock(semset_id);
 
 		sleep(1);
