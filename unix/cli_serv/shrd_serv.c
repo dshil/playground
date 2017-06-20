@@ -49,6 +49,10 @@ int main(int ac, char *av[])
 
 	long now = 0;
 	while (1) {
+		// Break in case of SIGINT.
+		if (semset_id == -1 && seg_id == -1)
+			break;
+
 		time(&now);
 
 		if (wait_and_lock(semset_id) == -1)
