@@ -38,10 +38,16 @@ int main(int ac, char *av[])
 		goto error;
 	}
 
+	errno = 0;
 	semset_id = semget(time_sem_key, 2, (0666|IPC_CREAT|IPC_EXCL));
 	if (semset_id == -1) {
-		perror("semget");
-		goto error;
+		if (errno == EEXIST)
+			semset_id = semget(time_sem_key, 2, 0);
+
+		if (semset_id == -1) {
+			perror("semget");
+			goto error;
+		}
 	}
 
 	if (sem_set(semset_id, 0, 0) == -1 || sem_set(semset_id, 1, 0) == -1)
@@ -114,15 +120,19 @@ static int sem_set(int semset_id, int semnum, int val)
 
 static int wait_and_lock(int semset_id)
 {
-	struct sembuf acts[2];
+	struct sembuf acts[3];
 
-	acts[0].sem_num = 0; /* index for readers */
+	acts[0].sem_num = 1;
 	acts[0].sem_flg = SEM_UNDO;
 	acts[0].sem_op = 0;
 
-	acts[1].sem_num = 1; /* index for writers */
+	acts[1].sem_num = 0; /* index for readers */
 	acts[1].sem_flg = SEM_UNDO;
-	acts[1].sem_op = +1;
+	acts[1].sem_op = 0;
+
+	acts[2].sem_num = 1; /* index for writers */
+	acts[2].sem_flg = SEM_UNDO;
+	acts[2].sem_op = +1;
 
 	errno = 0;
 	semop(semset_id, acts, 2);
