@@ -5,14 +5,14 @@
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
+#include <sys/ipc.h>
 #include <sys/types.h>
 
 static void cleanup(int signum);
 static int sem_set(int semset_id, int semnum, int val);
-static int wait_and_lock(int semset_id);
+static int wait_and_lock(int semset_id, const struct timespec *timeout);
 static int release_lock(int semset_id);
 
 sig_atomic_t seg_id = -1;
@@ -53,6 +53,10 @@ int main(int ac, char *av[])
 	if (sem_set(semset_id, 0, 0) == -1 || sem_set(semset_id, 1, 0) == -1)
 		goto error;
 
+	struct timespec timeout;
+	timeout.tv_sec = 1;
+	timeout.tv_nsec = 0;
+
 	long now = 0;
 	char *tm_str = NULL;
 	int len = 0;
@@ -63,7 +67,7 @@ int main(int ac, char *av[])
 
 		time(&now);
 
-		if (wait_and_lock(semset_id) == -1)
+		if (wait_and_lock(semset_id, &timeout) == -1)
 			goto error;
 
 		// No need to add '\n' in the end of string.
@@ -118,7 +122,7 @@ static int sem_set(int semset_id, int semnum, int val)
 	return 0;
 }
 
-static int wait_and_lock(int semset_id)
+static int wait_and_lock(int semset_id, const struct timespec *timeout)
 {
 	struct sembuf acts[3];
 
@@ -135,7 +139,7 @@ static int wait_and_lock(int semset_id)
 	acts[2].sem_op = +1;
 
 	errno = 0;
-	semop(semset_id, acts, 2);
+	semtimedop(semset_id, acts, 3, timeout);
 	if (errno != 0) {
 		if (errno == EINTR)
 			return -1;
