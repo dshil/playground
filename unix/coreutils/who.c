@@ -1,10 +1,7 @@
+#include <time.h>
+#include <utmpx.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <utmpx.h>
-#include <time.h>
-#include <sys/time.h>
-#include <string.h>
-#include <unistd.h>
 
 int main(int ac, char *av[])
 {
