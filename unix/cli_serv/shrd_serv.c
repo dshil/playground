@@ -89,6 +89,10 @@ error:
 	exit(EXIT_FAILURE);
 }
 
+/*
+ * cleanup is used for a removing semaphores and a shared memory segment. It
+ * is used as a signal handler also (SIGINT).
+ */
 static void cleanup(int signum)
 {
 	if (seg_id != -1) {
@@ -111,6 +115,9 @@ union semun {
 							   (Linux-specific) */
 };
 
+/*
+ * sets a semaphores value to zero.
+ */
 static int sem_set(int semset_id, int semnum, int val)
 {
 	union semun init_val;
@@ -122,6 +129,13 @@ static int sem_set(int semset_id, int semnum, int val)
 	return 0;
 }
 
+/*
+ * waits until writers numbers will be equal 0, readers number will be equal 0,
+ * note, that waiting zero readers number is a timeout based, it was done to
+ * avoid a writer to wait infinitely with a lot of readers number.
+ * 0 sem number stands for readers.
+ * 1 sem number stands for writers.
+ */
 static int wait_and_lock(int semset_id, const struct timespec *timeout)
 {
 	struct sembuf acts[3];
@@ -130,11 +144,11 @@ static int wait_and_lock(int semset_id, const struct timespec *timeout)
 	acts[0].sem_flg = SEM_UNDO;
 	acts[0].sem_op = 0;
 
-	acts[1].sem_num = 0; /* index for readers */
+	acts[1].sem_num = 0;
 	acts[1].sem_flg = SEM_UNDO;
 	acts[1].sem_op = 0;
 
-	acts[2].sem_num = 1; /* index for writers */
+	acts[2].sem_num = 1;
 	acts[2].sem_flg = SEM_UNDO;
 	acts[2].sem_op = +1;
 
@@ -151,6 +165,10 @@ static int wait_and_lock(int semset_id, const struct timespec *timeout)
 	return 0;
 }
 
+/*
+ * A write operation to a shared memory segment was done, number of writers
+ * will be decreased.
+ */
 static int release_lock(int semset_id)
 {
 	struct sembuf act[1];
