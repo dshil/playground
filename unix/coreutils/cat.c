@@ -3,16 +3,19 @@
 #include <unistd.h>
 #include "reader.h"
 
-static int read_cat(FILE *f, char *filename);
+static int read_cat(FILE *f);
+
+static int is_print_num = 0;
 
 int main(int ac, char *av[])
 {
 	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "q")) != -1) {
+	while((opt = getopt(ac, av, "qn")) != -1) {
 		switch(opt) {
 			case 'q': suppress_file_name = 1; break;
+			case 'n': is_print_num = 1; break;
 			default:
 					  fprintf(stderr, "Usage %s [-q] [file ...]\n", av[0]);
 					  exit(EXIT_FAILURE);
@@ -23,7 +26,7 @@ int main(int ac, char *av[])
 	config.read_file = read_cat;
 
 	if (ac == optind) {
-		if (config.read_file(stdin, "stdin") == -1)
+		if (config.read_file(stdin) == -1)
 			exit(EXIT_FAILURE);
 	} else {
 		config.is_print = ((ac - optind) > 1) && !suppress_file_name;
@@ -37,19 +40,38 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int read_cat(FILE *f, char *filename)
+static int read_cat(FILE *f)
 {
+	int ln = 1; /* line number */
+	int is_new_line = 1;
+
 	int c = 0;
-	while ((c = getc(f)) != EOF) {
+	for (;;) {
+		c = getc(f);
 		if (ferror(f) != 0) {
-			perror(filename);
+			perror("getc");
 			return -1;
 		}
 
+		if (feof(f))
+			break;
+
+		if (is_new_line) {
+			if (is_print_num) {
+				printf("  %d  ", ln);
+				ln++;
+				is_new_line = 0;
+			}
+		}
+
 		if (putchar(c) == EOF) {
-			perror(filename);
+			perror("putchar");
 			return -1;
 		}
+
+		if (c == '\n')
+			is_new_line = 1;
+
 	}
 
 	return 0;
