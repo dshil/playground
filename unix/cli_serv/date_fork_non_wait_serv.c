@@ -4,7 +4,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 
-#include "serv.h"
+#include "sock.h"
 
 int proccess_req(int sock_fd)
 {

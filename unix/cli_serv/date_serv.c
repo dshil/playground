@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "serv.h"
+#include "sock.h"
 
 static int fd = 0;
 static FILE *fout = NULL;
