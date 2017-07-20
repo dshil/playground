@@ -8,36 +8,50 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-static int more(FILE *fin, FILE *tty);
-static size_t linesnum(FILE *tty);
-static int tty_mode(FILE *tty, int mode);
+static int more(FILE *fin, FILE *tty, sigset_t *sigs);
+static size_t linesnum(FILE *tty, int rows);
+static int tty_mode(int mode);
 static int set_signal_handler(void);
 static void set_term_winsz(void);
 static void handle_sig(int signum);
-static int set_term_settings();
+static int set_term_settings(void);
 
-static int nrows = 24;
-static int ncols = 80;
-static FILE *tty = NULL;
+static sig_atomic_t nrows = 24;
+static sig_atomic_t ncols = 80;
+static int tty_fileno = 0;
 
 int main(int ac, char *av[])
 {
-	if (set_signal_handler() == -1)
-		exit(EXIT_FAILURE);
-
-	tty = fopen("/dev/tty", "r");
+	FILE *tty = fopen("/dev/tty", "r");
 	if (tty == NULL) {
 		perror("/dev/tty");
 		goto error;
 	}
+	tty_fileno = fileno(tty);
 
 	set_term_winsz();
-	if (set_term_settings() == -1)
+	if (set_term_settings() == -1) {
+		fprintf(stderr, "set_term_settings: %s\n", strerror(errno));
 		goto error;
+	}
+
+	if (set_signal_handler() == -1)
+		exit(EXIT_FAILURE);
+
+	sigset_t sigs;
+	if (sigemptyset(&sigs) == -1) {
+		perror("sigemptyset");
+		return -1;
+	}
+
+	if (sigaddset(&sigs, SIGWINCH) == -1) {
+		perror("sigaddset");
+		return -1;
+	}
 
 	FILE *fin = NULL;
 	if (ac == 1) {
-		if ((more(stdin, tty)) == -1) {
+		if ((more(stdin, tty, &sigs)) == -1) {
 			perror("stdin");
 			goto error;
 		}
@@ -56,7 +70,7 @@ int main(int ac, char *av[])
 				goto error;
 			}
 
-			if (more(fin, tty) == -1)
+			if (more(fin, tty, &sigs) == -1)
 				goto error;
 
 			if (fclose(fin) == EOF) {
@@ -67,7 +81,7 @@ int main(int ac, char *av[])
 		}
 	}
 
-	if (tty_mode(tty, 1) == -1)
+	if (tty_mode(1) == -1)
 		goto error;
 
 	if (tty != NULL) {
@@ -80,7 +94,7 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 
 error:
-	tty_mode(tty, 1);
+	tty_mode(1);
 
 	if (fin != NULL)
 		if (fclose(fin) == EOF)
@@ -96,11 +110,15 @@ error:
 	exit(EXIT_FAILURE);
 }
 
-static int more(FILE *fin, FILE *tty)
+static int more(FILE *fin, FILE *tty, sigset_t *sigs)
 {
 	int nl = 0; /* lines number */
 	int c = 0; /* current character */
 	int n = 0; /* lines to display determined by the user */
+
+	// Copy of actual rows number to prevent a race during
+	// a signal handling.
+	int cp_rows = 0;
 
 	for (;;) {
 		c = getc(fin);
@@ -120,8 +138,20 @@ static int more(FILE *fin, FILE *tty)
 		if (c == '\n') {
 			nl++;
 
-			if (nl == nrows) {
-				n = linesnum(tty);
+			if (sigprocmask(SIG_BLOCK, sigs, NULL) == -1) {
+				perror("sigprocmask");
+				return -1;
+			}
+
+			cp_rows = nrows;
+
+			if (sigprocmask(SIG_UNBLOCK, sigs, NULL) == -1) {
+				perror("sigprocmask");
+				return -1;
+			}
+
+			if (nl == cp_rows) {
+				n = linesnum(tty, cp_rows);
 				if (n == -1)
 					return -1;
 				else if (n == 0)
@@ -135,7 +165,7 @@ static int more(FILE *fin, FILE *tty)
 	return 0;
 }
 
-static size_t linesnum(FILE *tty)
+static size_t linesnum(FILE *tty, int rows)
 {
 	fprintf(stderr, "\033[7m more? \033[m\n");
 	int c = 0;
@@ -148,7 +178,7 @@ static size_t linesnum(FILE *tty)
 		if (c == 'q') {
 			return 0;
 		} else if (c == ' ') {
-			return nrows;
+			return rows;
 		} else if (c == '\n') {
 			return 1;
 		}
@@ -158,45 +188,44 @@ static size_t linesnum(FILE *tty)
 
 static int set_term_settings()
 {
-	if (tty_mode(tty, 0) == -1)
+	if (tty_mode(0) == -1)
 		return -1;
 
 	struct termios attr;
-	if (tcgetattr(fileno(tty), &attr) == -1) {
-		perror("tcgetattr");
+	if (tcgetattr(tty_fileno, &attr) == -1) {
 		return -1;
 	}
 
 	attr.c_lflag &= ~ECHO;
 	attr.c_lflag &= ~ICANON;
 
-	if (tcsetattr(fileno(tty), TCSANOW, &attr) == -1) {
-		perror("tcsetattr");
+	if (tcsetattr(tty_fileno, TCSANOW, &attr) == -1) {
 		return -1;
 	}
 }
 
-static int tty_mode(FILE *tty, int mode)
+static int tty_mode(int mode)
 {
 	static struct termios orig_mode;
 	static int orig_flags;
+
 	if (mode == 0) {
-		if (tcgetattr(fileno(tty), &orig_mode) == -1) {
+		if (tcgetattr(tty_fileno, &orig_mode) == -1) {
 			perror("tcgetattr");
 			return -1;
 		}
 
-		if ((orig_flags = fcntl(fileno(tty), F_GETFL)) == -1) {
+		if ((orig_flags = fcntl(tty_fileno, F_GETFL)) == -1) {
 			perror("fcntl");
 			return -1;
 		}
 	} else {
-		if (tcsetattr(fileno(tty), TCSANOW, &orig_mode) == -1) {
+		if (tcsetattr(tty_fileno, TCSANOW, &orig_mode) == -1) {
 			perror("tcsetattr");
 			return -1;
 		}
 
-		if (fcntl(fileno(tty), F_SETFL, orig_flags) == -1) {
+		if (fcntl(tty_fileno, F_SETFL, orig_flags) == -1) {
 			perror("fcntl");
 			return -1;
 		}
@@ -207,30 +236,49 @@ static int tty_mode(FILE *tty, int mode)
 
 static int set_signal_handler(void)
 {
-	int sigs[] = {SIGINT, SIGWINCH, SIGCONT};
+	int sigs[] = {SIGINT, SIGWINCH};
 	const int siglen = sizeof(sigs)/sizeof(int);
 
+	struct sigaction act;
+	act.sa_handler = handle_sig;
+
 	for (int i = 0; i < siglen; i++) {
-		errno = 0;
-		signal(sigs[i], handle_sig);
-		if (errno) {
-			perror("signal");
+		if (sigaction(sigs[i], &act, NULL) == -1) {
+			perror("sigaction");
 			return -1;
 		}
 	}
+
+	act.sa_flags = SA_RESTART;
+	if (sigaction(SIGCONT, &act, NULL) == -1) {
+		perror("sigaction");
+		return -1;
+	}
+
+	act.sa_flags |= SA_RESETHAND;
+	if (sigaction(SIGTSTP, &act, NULL) == -1) {
+		perror("sigaction");
+		return -1;
+	}
+
 	return 0;
 }
 
+// tcsh and bash will reset a terminal settings to default if a process will be
+// interrupted by a signal, but let's not rely on this. Need to reset the
+// default terminal settings when SIGINT and SIGTSTP are received.
 static void handle_sig(int signum)
 {
 	switch (signum) {
 		case SIGINT:
-			// tcsh and bash will reset the terminal settings to default
-			// if the process will be interrupted by the signal, but let's not
-			// relay on this.
-			if (tty_mode(tty, 1) == -1)
+			if (tty_mode(1) == -1)
 				exit(EXIT_FAILURE);
 			exit(EXIT_SUCCESS);
+		case SIGTSTP:
+			if (tty_mode(1) == -1)
+				exit(EXIT_FAILURE);
+			if (raise(signum) != 0)
+				exit(EXIT_FAILURE);
 		case SIGWINCH:
 			set_term_winsz();
 			break;
@@ -244,7 +292,7 @@ static void handle_sig(int signum)
 static void set_term_winsz(void)
 {
 	struct winsize wbuf;
-	if (ioctl(fileno(tty), TIOCGWINSZ, &wbuf) != -1) {
+	if (ioctl(tty_fileno, TIOCGWINSZ, &wbuf) != -1) {
 		nrows = wbuf.ws_row;
 		ncols = wbuf.ws_col;
 	}
