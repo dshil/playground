@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <unistd.h>
+
 #include "reader.h"
 
 static int read_head_lines(FILE *f);
