@@ -5,9 +5,11 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <string.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+
 #include "reader.h"
 
 /*

@@ -1,7 +1,9 @@
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <unistd.h>
+
 #include "reader.h"
 
 int read_files(struct read_config *conf)
