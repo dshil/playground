@@ -16,7 +16,7 @@ int conn_to_serv(char *host, int port)
 	}
 
 	struct sockaddr_in addr;
-	bzero((void *) &addr, sizeof(addr));
+	bzero((void *)&addr, sizeof(addr));
 
 	struct hostent *hp = gethostbyname(host);
 	if (hp == NULL) {
@@ -35,7 +35,7 @@ int conn_to_serv(char *host, int port)
 
 	return sock_fd;
 
-error:
+ error:
 	if (sock_fd != -1)
 		if (close(sock_fd) == -1)
 			perror("close");

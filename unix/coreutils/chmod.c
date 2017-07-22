@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <getopt.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -12,19 +14,19 @@
 		3. -R option.
 */
 
-static int parse_mode(char *rec, mode_t *mode, int *perm_mode);
-static int setmode(char utype, char mode, mode_t *m);
+static int parse_mode(char *rec, mode_t * mode, int *perm_mode);
+static int setmode(char utype, char mode, mode_t * m);
 static int is_delimiter(char c);
 
-static int set_user_access(char utype, char mode, mode_t *m);
-static int set_group_access(char utype, char mode, mode_t *m);
-static int set_other_access(char utype, char mode, mode_t *m);
+static int set_user_access(char utype, char mode, mode_t * m);
+static int set_group_access(char utype, char mode, mode_t * m);
+static int set_other_access(char utype, char mode, mode_t * m);
 
 static int
-change_perm(char *filename, mode_t *mode, void (*)(mode_t *, mode_t));
+change_perm(char *filename, mode_t * mode, void (*)(mode_t *, mode_t));
 
-static void add_perm(mode_t *dst, mode_t src);
-static void rm_perm(mode_t *dst, mode_t src);
+static void add_perm(mode_t * dst, mode_t src);
+static void rm_perm(mode_t * dst, mode_t src);
 
 int main(int ac, char *av[])
 {
@@ -44,7 +46,7 @@ int main(int ac, char *av[])
 	}
 
 	char *filename = NULL;
-	while(--ac != optind) {
+	while (--ac != optind) {
 		filename = *++av;
 		if (perm_mode == 1) {
 			if (change_perm(filename, &mode, add_perm) == -1)
@@ -57,7 +59,8 @@ int main(int ac, char *av[])
 		}
 
 		if (chmod(filename, mode) == -1) {
-			perror("chmod");
+			fprintf(stderr, "chmod(%s): %s\n", filename,
+				strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -65,11 +68,11 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
+static int parse_mode(char *rec, mode_t * mode, int *perm_mode)
 {
 	char *s_mode = rec;
 	char *s_utype = rec;
-	int i = 0; /* position of the ``=,-,+`` */
+	int i = 0;		/* position of the ``=,-,+`` */
 	for (;;) {
 		if (is_delimiter(*s_mode))
 			break;
@@ -85,7 +88,8 @@ static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
 	} else if (delimiter == '-') {
 		*perm_mode = 2;
 	} else {
-		fprintf(stderr, "%s, invalid delimiter: %c\n", "chmod", delimiter);
+		fprintf(stderr, "%s, invalid delimiter: %c\n", "chmod",
+			delimiter);
 		return -1;
 	}
 
@@ -99,7 +103,7 @@ static int parse_mode(char *rec, mode_t *mode, int *perm_mode)
 		return 0;
 	}
 
-	while(*s_utype != delimiter) {
+	while (*s_utype != delimiter) {
 		while (*s_mode != '\0') {
 			if (setmode(*s_utype, *s_mode, mode) == -1)
 				return -1;
@@ -116,70 +120,89 @@ static int is_delimiter(char c)
 	return c == '=' || c == '+' || c == '-';
 }
 
-static int setmode(char utype, char mode, mode_t *m)
+static int setmode(char utype, char mode, mode_t * m)
 {
 	if (utype == 'u') {
-		if (set_user_access(utype, mode, m) == -1) return -1;
+		if (set_user_access(utype, mode, m) == -1)
+			return -1;
 	} else if (utype == 'g') {
-		if (set_group_access(utype, mode, m) == -1) return -1;
+		if (set_group_access(utype, mode, m) == -1)
+			return -1;
 	} else if (utype == 'o') {
-		if (set_other_access(utype, mode, m) == -1) return -1;
+		if (set_other_access(utype, mode, m) == -1)
+			return -1;
 	} else if (utype == 'a') {
 		if (set_user_access(utype, mode, m) == -1 ||
-		set_group_access(utype, mode, m) == -1 ||
-		set_other_access(utype, mode, m) == -1)
+		    set_group_access(utype, mode, m) == -1 ||
+		    set_other_access(utype, mode, m) == -1)
 			return -1;
 	} else {
 		fprintf(stderr,
-				"%s: invalid owner type: `%c=%c`\n", "chmod", utype, mode);
+			"%s: invalid owner type: `%c=%c`\n", "chmod", utype,
+			mode);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int set_user_access(char utype, char mode, mode_t *m)
+static int set_user_access(char utype, char mode, mode_t * m)
 {
-	if (mode == 'r') *m |= S_IRUSR;
-	else if (mode == 'w') *m |= S_IWUSR;
-	else if (mode == 'x') *m |= S_IXUSR;
-	else if (mode == 's') *m |= S_ISUID;
-	else if (mode == 't') *m |= S_ISVTX;
+	if (mode == 'r')
+		*m |= S_IRUSR;
+	else if (mode == 'w')
+		*m |= S_IWUSR;
+	else if (mode == 'x')
+		*m |= S_IXUSR;
+	else if (mode == 's')
+		*m |= S_ISUID;
+	else if (mode == 't')
+		*m |= S_ISVTX;
 	else {
 		fprintf(stderr,
-				"%s: invalid mode: `%c=%c`\n", "chmod", utype, mode);
+			"%s: invalid mode: `%c=%c`\n", "chmod", utype, mode);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int set_group_access(char utype, char mode, mode_t *m)
+static int set_group_access(char utype, char mode, mode_t * m)
 {
-	if (mode == 'r') *m |= S_IRGRP;
-	else if (mode == 'w') *m |= S_IWGRP;
-	else if (mode == 'x') *m |= S_IXGRP;
-	else if (mode == 's') *m |= S_ISUID;
-	else if (mode == 't') *m |= S_ISVTX;
+	if (mode == 'r')
+		*m |= S_IRGRP;
+	else if (mode == 'w')
+		*m |= S_IWGRP;
+	else if (mode == 'x')
+		*m |= S_IXGRP;
+	else if (mode == 's')
+		*m |= S_ISUID;
+	else if (mode == 't')
+		*m |= S_ISVTX;
 	else {
 		fprintf(stderr,
-				"%s: invalid mode: `%c=%c`\n", "chmod", utype, mode);
+			"%s: invalid mode: `%c=%c`\n", "chmod", utype, mode);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int set_other_access(char utype, char mode, mode_t *m)
+static int set_other_access(char utype, char mode, mode_t * m)
 {
-	if (mode == 'r') *m |= S_IROTH;
-	else if (mode == 'w') *m |= S_IWOTH;
-	else if (mode == 'x') *m |= S_IXOTH;
-	else if (mode == 's') *m |= S_ISUID;
-	else if (mode == 't') *m |= S_ISVTX;
+	if (mode == 'r')
+		*m |= S_IROTH;
+	else if (mode == 'w')
+		*m |= S_IWOTH;
+	else if (mode == 'x')
+		*m |= S_IXOTH;
+	else if (mode == 's')
+		*m |= S_ISUID;
+	else if (mode == 't')
+		*m |= S_ISVTX;
 	else {
 		fprintf(stderr,
-				"%s: invalid mode: `%c=%c`\n", "chmod", utype, mode);
+			"%s: invalid mode: `%c=%c`\n", "chmod", utype, mode);
 		return -1;
 	}
 
@@ -187,24 +210,24 @@ static int set_other_access(char utype, char mode, mode_t *m)
 }
 
 static int
-change_perm(char *filename, mode_t *mode, void (*fn)(mode_t *, mode_t))
+change_perm(char *filename, mode_t * mode, void (*fn) (mode_t *, mode_t))
 {
 	struct stat sb;
 	if (stat(filename, &sb) == -1) {
-		perror("stat");
+		fprintf(stderr, "stat(%s): %s\n", filename, strerror(errno));
 		return -1;
 	}
-	(*fn)(mode, sb.st_mode);
+	(*fn) (mode, sb.st_mode);
 
 	return 0;
 }
 
-static void add_perm(mode_t *dst, mode_t src)
+static void add_perm(mode_t * dst, mode_t src)
 {
 	*dst |= src;
 }
 
-static void rm_perm(mode_t *dst, mode_t src)
+static void rm_perm(mode_t * dst, mode_t src)
 {
 	*dst = src ^ *dst;
 }

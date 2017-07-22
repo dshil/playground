@@ -7,7 +7,7 @@
 #include <linux/limits.h>
 
 static int do_path(int fd, char *path);
-static void bad_request(FILE *fout, char *msg);
+static void bad_request(FILE * fout, char *msg);
 static int handle_http_req(int sock_fd);
 
 static char *HTTP_V = "HTTP/1.0";
@@ -90,7 +90,7 @@ static int handle_http_req(int sock_fd)
 
 	strcpy(path, "./");
 
-	if (sscanf(buf, "%s %s %s", method, path+2, http_ver) != 3) {
+	if (sscanf(buf, "%s %s %s", method, path + 2, http_ver) != 3) {
 		bad_request(fout, "invalid request format");
 
 		if (fclose(fin) == -1 || fclose(fout) == -1) {
@@ -115,7 +115,7 @@ static int handle_http_req(int sock_fd)
 
 	return 0;
 
-error:
+ error:
 	if (fin != NULL)
 		if (fclose(fin) == -1)
 			perror("fclose");
@@ -166,7 +166,7 @@ static int do_path(int fd, char *path)
 	return 0;
 }
 
-static void bad_request(FILE *fout, char *msg)
+static void bad_request(FILE * fout, char *msg)
 {
 	fprintf(fout, "%s 404 %s\n", HTTP_V, msg);
 }

@@ -49,7 +49,7 @@ static int make_sock(int port, int conn_type)
 
 	return sock_fd;
 
-error:
+ error:
 	if (sock_fd != -1) {
 		if (close(sock_fd) == -1)
 			perror("close");
@@ -69,7 +69,7 @@ static int make_net_addr(char *hostname, int port, struct sockaddr_in *saddr)
 		return -1;
 	}
 
-	bcopy((void *)hp->h_addr, (void*)&saddr->sin_addr, hp->h_length);
+	bcopy((void *)hp->h_addr, (void *)&saddr->sin_addr, hp->h_length);
 
 	saddr->sin_port = htons(port);
 	saddr->sin_family = AF_INET;

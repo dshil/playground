@@ -12,9 +12,9 @@
  * [] Handle signals gracefully.
  */
 
-static int read_tail_lines(FILE *f);
-static int read_tail_bytes(FILE *f);
-static int read_tail_blocks(FILE *f);
+static int read_tail_lines(FILE * f);
+static int read_tail_bytes(FILE * f);
+static int read_tail_blocks(FILE * f);
 
 static int read_stdin_tail(struct read_config *conf);
 static void usage(char *prog_name);
@@ -38,16 +38,26 @@ int main(int ac, char *av[])
 	char *following_file = NULL;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "qf:b:c:n:")) != -1) {
-		switch(opt) {
-			case 'q': suppress_file_name = 1; break;
-			case 'f': following_file = optarg; break;
-			case 'b': nblockval = optarg; break;
-			case 'n': nlineval = optarg; break;
-			case 'c': nbyteval = optarg; break;
-			default:
-				  usage(av[0]);
-				  exit(EXIT_FAILURE);
+	while ((opt = getopt(ac, av, "qf:b:c:n:")) != -1) {
+		switch (opt) {
+		case 'q':
+			suppress_file_name = 1;
+			break;
+		case 'f':
+			following_file = optarg;
+			break;
+		case 'b':
+			nblockval = optarg;
+			break;
+		case 'n':
+			nlineval = optarg;
+			break;
+		case 'c':
+			nbyteval = optarg;
+			break;
+		default:
+			usage(av[0]);
+			exit(EXIT_FAILURE);
 		}
 	}
 
@@ -126,7 +136,7 @@ static int read_stdin_tail(struct read_config *conf)
 
 	return 0;
 
-error:
+ error:
 	if (tmp != NULL) {
 		if (fclose(tmp) == -1) {
 			perror("fclose");
@@ -135,11 +145,11 @@ error:
 	return -1;
 }
 
-static int read_tail_lines(FILE *f)
+static int read_tail_lines(FILE * f)
 {
 	int c = 0;
 	int n = 0;
-	int nc = 0; /* number of characters to print */
+	int nc = 0;		/* number of characters to print */
 
 	if (fseek(f, 0, SEEK_END) == -1) {
 		perror("fseek");
@@ -167,12 +177,12 @@ static int read_tail_lines(FILE *f)
 			return -1;
 		}
 
-	} while (n != (nlines+1));
+	} while (n != (nlines + 1));
 
 	return read_and_print_bytes(f, nc);
 }
 
-static int read_tail_bytes(FILE *f)
+static int read_tail_bytes(FILE * f)
 {
 	int len = 0;
 	if ((len = file_len(f)) == -1)
@@ -192,16 +202,15 @@ static int read_tail_bytes(FILE *f)
 	return read_and_print_bytes(f, nbytes);
 }
 
-static int read_tail_blocks(FILE *f)
+static int read_tail_blocks(FILE * f)
 {
 	if (fseek(f, 0, SEEK_END) == -1) {
 		perror("fseek");
 		return -1;
 	}
-
 	// 512, 256, 128, ..., 1.
 	char block_sizes[9];
-	const int len = sizeof(block_sizes)/sizeof(block_sizes[0]);
+	const int len = sizeof(block_sizes) / sizeof(block_sizes[0]);
 
 	int i = 0;
 	int block_size = 512;
@@ -237,8 +246,8 @@ static int read_tail_blocks(FILE *f)
 static void usage(char *prog_name)
 {
 	fprintf(stderr,
-			"Usage: %s [-q] [-f file] [-b blocks | -c bytes | -n lines] [file ...]\n",
-			prog_name);
+		"Usage: %s [-q] [-f file] [-b blocks | -c bytes | -n lines] [file ...]\n",
+		prog_name);
 }
 
 static int listen_file_changes(char *filename, int init_offset)
@@ -259,7 +268,7 @@ static int listen_file_changes(char *filename, int init_offset)
 	}
 
 	/* Prepare for polling */
-	nfds_t nfds = 2; /* number of file descriptors for polling */
+	nfds_t nfds = 2;	/* number of file descriptors for polling */
 	struct pollfd fds[2];
 
 	/* Console input */
@@ -274,7 +283,7 @@ static int listen_file_changes(char *filename, int init_offset)
 	char buf = 0;
 
 	/* Wait for inotify events and/or terminal input */
-	while(1) {
+	while (1) {
 		if ((poll_num = poll(fds, nfds, -1)) == -1) {
 			perror("poll");
 			return -1;
@@ -283,12 +292,14 @@ static int listen_file_changes(char *filename, int init_offset)
 		if (poll_num > 0) {
 			/* Console input is available. Empty stdin and continue. */
 			if (fds[0].revents & POLLIN) {
-				while (read(STDIN_FILENO, &buf, 1) > 0 && buf != '\n')
+				while (read(STDIN_FILENO, &buf, 1) > 0
+				       && buf != '\n')
 					continue;
 			}
 
 			if (fds[1].revents & POLLIN) {
-				if (handle_inotify_events(ifd, filename, &init_offset) == -1)
+				if (handle_inotify_events
+				    (ifd, filename, &init_offset) == -1)
 					goto error;
 			}
 		}
@@ -312,7 +323,7 @@ static int listen_file_changes(char *filename, int init_offset)
 
 	return 0;
 
-error:
+ error:
 	if (ifd != -1) {
 		if (close(ifd) == -1) {
 			perror("close");
@@ -335,16 +346,16 @@ static int handle_inotify_events(int ifd, char *filename, int *offset)
 	   decrease performance. The buffer used for reading from the
 	   inotify file descriptor should have the same alignment as
 	   struct inotify_event.
-	*/
-	char buf[4*BUFSIZ]
-		__attribute__ ((aligned(__alignof__(struct inotify_event))));
+	 */
+	char buf[4 * BUFSIZ]
+	    __attribute__ ((aligned(__alignof__(struct inotify_event))));
 
-	const int buf_len = sizeof(buf)/sizeof(buf[0]);
+	const int buf_len = sizeof(buf) / sizeof(buf[0]);
 
 	const struct inotify_event *event;
 	char *ptr = NULL;
 	ssize_t len = 0;
-	ssize_t w_len = 0; /* number of write bytes */
+	ssize_t w_len = 0;	/* number of write bytes */
 
 	errno = 0;
 
@@ -357,19 +368,21 @@ static int handle_inotify_events(int ifd, char *filename, int *offset)
 
 		/* If the nonblocking read() found no events to read, then
 		   it returns -1 with errno set to EAGAIN. Exit the loop.
-		*/
+		 */
 
 		if (len <= 0)
 			return 0;
 
 		/* Iterate over all events in the buffer */
 		for (ptr = buf; ptr < buf + len;
-				ptr += sizeof(struct inotify_event) + event->len) {
+		     ptr += sizeof(struct inotify_event) + event->len) {
 
-			event = (const struct inotify_event *) ptr;
+			event = (const struct inotify_event *)ptr;
 
 			if (event->mask & IN_MODIFY) {
-				if ((w_len = write_from_path(filename, *offset)) == -1) {
+				if ((w_len =
+				     write_from_path(filename,
+						     *offset)) == -1) {
 					return -1;
 				}
 
@@ -406,7 +419,7 @@ static ssize_t write_from_path(char *filepath, int offset)
 
 	return n;
 
-error:
+ error:
 	if (f != NULL) {
 		if (fclose(f) == -1)
 			perror("fclose");

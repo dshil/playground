@@ -59,11 +59,13 @@ int main(int ac, char *av[])
 			}
 
 			if (sscanf(buf, "%d%[-+*/^]%d", &num1, &op, &num2) != 3) {
-				fprintf(stderr, "invalid format, use num1 op num2\n");
+				fprintf(stderr,
+					"invalid format, use num1 op num2\n");
 				continue;
 			}
 
-			if (fprintf(fout, "%d\n%d\n%c\np\n", num1, num2, op) == EOF) {
+			if (fprintf(fout, "%d\n%d\n%c\np\n", num1, num2, op) ==
+			    EOF) {
 				perror("fprintf");
 				goto error;
 			}
@@ -97,7 +99,7 @@ int main(int ac, char *av[])
 	}
 
 	exit(EXIT_SUCCESS);
-error:
+ error:
 	if (fin != NULL)
 		fclose(fin);
 	if (fout != NULL)
@@ -151,7 +153,7 @@ static int dup2pipe(int ch[])
 
 	return 0;
 
-error:
+ error:
 	if (ch[0] != -1)
 		close(ch[0]);
 	if (ch[1] != -1)

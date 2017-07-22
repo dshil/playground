@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "reader.h"
@@ -17,7 +18,8 @@ int read_files(struct read_config *conf)
 			continue;
 
 		if ((f = fopen(conf->argv[i], "r")) == NULL) {
-			perror("fopen");
+			fprintf(stderr, "fopen(%s): %s\n", conf->argv[i],
+				strerror(errno));
 			return -1;
 		}
 
@@ -35,13 +37,15 @@ int read_files(struct read_config *conf)
 
 		if (conf->read_file(f) == -1) {
 			if (fclose(f) == -1) {
-				perror("fclose");
+				fprintf(stderr, "fclose(%s): %s\n",
+					conf->argv[i], strerror(errno));
 				return -1;
 			}
 		}
 
 		if (fclose(f) == -1) {
-			perror("fclose");
+			fprintf(stderr, "fclose(%s): %s\n", conf->argv[i],
+				strerror(errno));
 			return -1;
 		}
 	}
@@ -65,11 +69,11 @@ int parse_num(char *val, int *num)
 	return 0;
 }
 
-int read_and_print_bytes(FILE *f, size_t nmemb)
+int read_and_print_bytes(FILE * f, size_t nmemb)
 {
 	char buf[nmemb];
 	ssize_t n = 0;
-	const int len = sizeof(buf)/sizeof(buf[0]);
+	const int len = sizeof(buf) / sizeof(buf[0]);
 
 	n = fread(buf, 1, len, f);
 	if (ferror(f) != 0) {
@@ -85,7 +89,7 @@ int read_and_print_bytes(FILE *f, size_t nmemb)
 	return 0;
 }
 
-int file_len(FILE *f)
+int file_len(FILE * f)
 {
 	if (fseek(f, 0, SEEK_END) == -1) {
 		perror("fseek");
@@ -106,10 +110,10 @@ int file_len(FILE *f)
 	return offset;
 }
 
-ssize_t write_from_to(FILE *src, FILE *dst)
+ssize_t write_from_to(FILE * src, FILE * dst)
 {
-	char buf[BUFSIZ*4];
-	const int buf_len = BUFSIZ*4;
+	char buf[BUFSIZ * 4];
+	const int buf_len = BUFSIZ * 4;
 	ssize_t n = 0;
 	ssize_t w_len = 0;
 

@@ -56,7 +56,7 @@ int proccess_req(int sock_fd)
 
 	return 0;
 
-error:
+ error:
 	if (fd != -1)
 		if (close(fd) == -1)
 			perror("close");

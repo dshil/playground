@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
 #include <unistd.h>
 
 #include "reader.h"
 
-static int read_cat(FILE *f);
+static int read_cat(FILE * f);
 
 static int is_print_num = 0;
 
@@ -13,13 +14,17 @@ int main(int ac, char *av[])
 	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "qn")) != -1) {
-		switch(opt) {
-			case 'q': suppress_file_name = 1; break;
-			case 'n': is_print_num = 1; break;
-			default:
-					  fprintf(stderr, "Usage %s [-q] [file ...]\n", av[0]);
-					  exit(EXIT_FAILURE);
+	while ((opt = getopt(ac, av, "qn")) != -1) {
+		switch (opt) {
+		case 'q':
+			suppress_file_name = 1;
+			break;
+		case 'n':
+			is_print_num = 1;
+			break;
+		default:
+			fprintf(stderr, "Usage %s [-q] [file ...]\n", av[0]);
+			exit(EXIT_FAILURE);
 		}
 	}
 
@@ -41,9 +46,9 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int read_cat(FILE *f)
+static int read_cat(FILE * f)
 {
-	int ln = 1; /* line number */
+	int ln = 1;		/* line number */
 	int is_new_line = 1;
 
 	int c = 0;

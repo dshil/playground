@@ -5,8 +5,8 @@
 
 #include "reader.h"
 
-static int read_head_lines(FILE *f);
-static int read_head_bytes(FILE *f);
+static int read_head_lines(FILE * f);
+static int read_head_bytes(FILE * f);
 
 static int nlines = 10;
 static int nbytes = -1;
@@ -18,20 +18,29 @@ int main(int ac, char *av[])
 	int suppress_file_name = 0;
 
 	int opt = 0;
-	while((opt = getopt(ac, av, "qn:c:")) != -1) {
-		switch(opt) {
-			case 'n': nlineval = optarg; break;
-			case 'c': nbyteval = optarg; break;
-			case 'q': suppress_file_name = 1; break;
-			default:
-				fprintf(stderr, "Usage: %s [-q] [-n lines | -c bytes] [file ...]\n",
-					av[0]);
-				exit(EXIT_FAILURE);
+	while ((opt = getopt(ac, av, "qn:c:")) != -1) {
+		switch (opt) {
+		case 'n':
+			nlineval = optarg;
+			break;
+		case 'c':
+			nbyteval = optarg;
+			break;
+		case 'q':
+			suppress_file_name = 1;
+			break;
+		default:
+			fprintf(stderr,
+				"Usage: %s [-q] [-n lines | -c bytes] [file ...]\n",
+				av[0]);
+			exit(EXIT_FAILURE);
 		}
 	}
 
 	if (nlineval != NULL && nbyteval != NULL) {
-		fprintf(stderr, "Usage: %s [-q] [-n lines | -c bytes] [file ...]\n", av[0]);
+		fprintf(stderr,
+			"Usage: %s [-q] [-n lines | -c bytes] [file ...]\n",
+			av[0]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -64,10 +73,10 @@ int main(int ac, char *av[])
 	exit(EXIT_SUCCESS);
 }
 
-static int read_head_lines(FILE *f)
+static int read_head_lines(FILE * f)
 {
 	int c = 0;
-	int n = 0; // number of lines that were already read
+	int n = 0;		// number of lines that were already read
 
 	while ((c = getc(f)) != EOF) {
 		if (ferror(f) != 0) {
@@ -96,7 +105,7 @@ static int read_head_lines(FILE *f)
 	return 0;
 }
 
-static int read_head_bytes(FILE *f)
+static int read_head_bytes(FILE * f)
 {
 
 	int len = 0;
@@ -106,6 +115,6 @@ static int read_head_bytes(FILE *f)
 	if (len == 0)
 		return 0;
 
-	return (nbytes > len) ? read_and_print_bytes(f, len):
-		read_and_print_bytes(f, nbytes);
+	return (nbytes > len) ? read_and_print_bytes(f, len) :
+	    read_and_print_bytes(f, nbytes);
 }

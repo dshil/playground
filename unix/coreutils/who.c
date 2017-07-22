@@ -7,13 +7,13 @@
 
 int main(int ac, char *av[])
 {
-	setutxent(); /* reset the database */
+	setutxent();		/* reset the database */
 
 	struct utmpx *rec = NULL;
 
 	struct tm *tm_info = NULL;
 	const int tm_len = 20;
-	char time_str [tm_len];
+	char time_str[tm_len];
 	time_t tv_sec = 0;
 
 	for (;;) {
@@ -39,16 +39,13 @@ int main(int ac, char *av[])
 
 		strftime(time_str, tm_len, "%b %e %H:%M", tm_info);
 		printf("%s\t%s\t%s\t(%s)\n",
-				rec->ut_user,
-				rec->ut_line,
-				time_str,
-				rec->ut_host);
+		       rec->ut_user, rec->ut_line, time_str, rec->ut_host);
 	}
 
-	endutxent(); /* close the database */
+	endutxent();		/* close the database */
 	exit(EXIT_SUCCESS);
 
-error:
+ error:
 	endutxent();
 	exit(EXIT_FAILURE);
 }

@@ -5,12 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <inttypes.h>
 
 static int chwn(const char *owner, const char *grp, const char *fname);
-static int name_to_uid_gid(const char *name, uid_t *uid, gid_t *gid);
+static int name_to_uid_gid(const char *name, uid_t * uid, gid_t * gid);
 static gid_t name_to_gid(const char *grp);
 static gid_t file_grp(const char *grp, const char *fname);
 
@@ -21,8 +22,10 @@ int main(int ac, char *av[])
 		exit(EXIT_FAILURE);
 	}
 
-	char *p = NULL, *q = NULL;
-	char *owner = NULL, *grp = NULL;
+	char *p = NULL;
+	char *q = NULL;
+	char *owner = NULL;
+	char *grp = NULL;
 	int i = 0;
 
 	for (q = *(av + 1); (p = strtok(q, ":")) != NULL; q = NULL) {
@@ -31,14 +34,16 @@ int main(int ac, char *av[])
 		else if (i == 1) {
 			grp = p;
 		} else {
-			fprintf(stderr, "%s: invalid format, <owner>:<group>\n", av[0]);
+			fprintf(stderr, "%s: invalid format, <owner>:<group>\n",
+				av[0]);
 			exit(EXIT_FAILURE);
 		}
 		i++;
 	}
 
 	if (ac == 2) {
-		fprintf(stderr, "%s: missing operand after `%s\n", av[0], owner);
+		fprintf(stderr, "%s: missing operand after `%s\n", av[0],
+			owner);
 		exit(EXIT_FAILURE);
 	}
 
@@ -80,14 +85,13 @@ static int chwn(const char *owner, const char *grp, const char *fname)
 	}
 
 	if (chown(fname, uid, gid) == -1) {
-		fprintf(stderr, "chown, err = ");
-		perror(fname);
+		fprintf(stderr, "chown(%s): %s\n", fname, strerror(errno));
 		return -1;
 	}
 	return 0;
 }
 
-static int name_to_uid_gid(const char *name, uid_t *uid, gid_t *gid)
+static int name_to_uid_gid(const char *name, uid_t * uid, gid_t * gid)
 {
 	errno = 0;
 	struct passwd *pw = getpwnam(name);
@@ -112,8 +116,7 @@ static gid_t file_grp(const char *grp, const char *fname)
 	gid_t gid = 0;
 	struct stat sb;
 	if (stat(fname, &sb) == -1) {
-		fprintf(stderr, "stat, err = ");
-		perror(fname);
+		fprintf(stderr, "stat(%s): %s\n", fname, strerror(errno));
 		return -1;
 	}
 
@@ -130,8 +133,7 @@ static gid_t name_to_gid(const char *grp)
 			fprintf(stderr, "invalid group: %s\n", grp);
 			return -1;
 		}
-		fprintf(stderr, "getgrnam, err = ");
-		perror(grp);
+		fprintf(stderr, "getgrnam(%s): %s\n", grp, strerror(errno));
 		return -1;
 	}
 
