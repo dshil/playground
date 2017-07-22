@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <getopt.h>
 #include <sys/types.h>
 #include <linux/limits.h>
 
@@ -18,12 +19,16 @@ int main(int ac, char *av[])
 	char *smode = NULL;
 
 	while ((opt = getopt(ac, av, "m:p")) != -1) {
-		switch(opt) {
-			case 'm': smode = optarg; break;
-			case 'p': deep = 1; break;
-			default:
-				  usage(av[0]);
-				  exit(EXIT_FAILURE);
+		switch (opt) {
+		case 'm':
+			smode = optarg;
+			break;
+		case 'p':
+			deep = 1;
+			break;
+		default:
+			usage(av[0]);
+			exit(EXIT_FAILURE);
 		}
 	}
 	mode_t mask = 0777;
@@ -46,19 +51,19 @@ int main(int ac, char *av[])
 				exit(EXIT_FAILURE);
 		} else {
 			if (mkdir(dir, mask) == -1) {
-				fprintf(stderr, "mkdir, err = ");
-				perror(dir);
+				fprintf(stderr, "mkdir(%s): %s\n", dir,
+					strerror(errno));
 				exit(EXIT_FAILURE);
 			}
 		}
 	} else {
 		char **dirs = av + optind;
 		char *dir = NULL;
-		while(--ac >= optind) {
+		while (--ac >= optind) {
 			dir = *dirs++;
 			if (mkdir(dir, mask) == -1) {
-				fprintf(stderr, "mkdir, err = ");
-				perror(dir);
+				fprintf(stderr, "mkdir(%s): %s\n", dir,
+					strerror(errno));
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -79,8 +84,8 @@ static int mkdir_all(char *dir, mode_t mode)
 		errno = 0;
 		if (mkdir(path, mode) == -1) {
 			if (errno != EEXIST) {
-				fprintf(stderr, "mkdir, err = ");
-				perror(path);
+				fprintf(stderr, "mkdir(%s): %s\n", path,
+					strerror(errno));
 				return -1;
 			}
 		}

@@ -8,7 +8,7 @@
 #include <linux/limits.h>
 
 static int pwd(void);
-static int dirwalk(ino_t ino, int (*fnc)(void));
+static int dirwalk(ino_t ino, int (*fnc) (void));
 
 int main(int ac, char *av[])
 {
@@ -32,7 +32,7 @@ static int pwd(void)
 		return -1;
 	}
 
-	if (chld_sb.st_ino == par_sb.st_ino) /* reach the root */
+	if (chld_sb.st_ino == par_sb.st_ino)	/* reach the root */
 		return 0;
 
 	if (chdir("..") == -1) {
@@ -43,7 +43,7 @@ static int pwd(void)
 	return dirwalk(chld_sb.st_ino, pwd);
 }
 
-static int dirwalk(ino_t ino, int (*fnc)(void))
+static int dirwalk(ino_t ino, int (*fnc) (void))
 {
 	DIR *dir = NULL;
 	struct dirent *dp = NULL;
@@ -66,7 +66,7 @@ static int dirwalk(ino_t ino, int (*fnc)(void))
 
 		if (dp->d_ino == ino) {
 			if (fnc != NULL) {
-				if ((*fnc)() == -1)
+				if ((*fnc) () == -1)
 					goto error;
 			}
 
@@ -76,7 +76,7 @@ static int dirwalk(ino_t ino, int (*fnc)(void))
 	}
 	goto success;
 
-success:
+ success:
 	if (closedir(dir) == -1) {
 		perror("closedir");
 		return -1;
@@ -84,7 +84,7 @@ success:
 
 	return 0;
 
-error:
+ error:
 	if (dir != NULL)
 		if (closedir(dir) == -1)
 			perror("closedir");

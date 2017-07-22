@@ -31,7 +31,7 @@ int main(int ac, char *av[])
 	}
 
 	void *memp = shmat(seg_id, NULL, 0);
-	if (memp == (void *) -1) {
+	if (memp == (void *)-1) {
 		perror("shmat");
 		exit(EXIT_FAILURE);
 	}
@@ -51,8 +51,8 @@ int main(int ac, char *av[])
 
 	exit(EXIT_SUCCESS);
 
-error:
-	if (memp != (void *) -1)
+ error:
+	if (memp != (void *)-1)
 		if (shmdt(memp) == -1)
 			perror("shmdt");
 	exit(EXIT_FAILURE);
@@ -62,11 +62,11 @@ static int wait_and_lock(int semset_id)
 {
 	struct sembuf acts[2];
 
-	acts[0].sem_num = 1; /* index for writers */
+	acts[0].sem_num = 1;	/* index for writers */
 	acts[0].sem_flg = SEM_UNDO;
 	acts[0].sem_op = 0;
 
-	acts[1].sem_num = 0; /* index for readers */
+	acts[1].sem_num = 0;	/* index for readers */
 	acts[1].sem_flg = SEM_UNDO;
 	acts[1].sem_op = +1;
 

@@ -26,7 +26,7 @@ int main(int ac, char *av[])
 
 	signal(SIGINT, cleanup);
 
-	seg_id = shmget(time_mem_key, seg_size, IPC_CREAT|0777);
+	seg_id = shmget(time_mem_key, seg_size, IPC_CREAT | 0777);
 	if (seg_id == -1) {
 		perror("shmget");
 		exit(EXIT_FAILURE);
@@ -39,7 +39,7 @@ int main(int ac, char *av[])
 	}
 
 	errno = 0;
-	semset_id = semget(time_sem_key, 2, (0666|IPC_CREAT|IPC_EXCL));
+	semset_id = semget(time_sem_key, 2, (0666 | IPC_CREAT | IPC_EXCL));
 	if (semset_id == -1) {
 		if (errno == EEXIST)
 			semset_id = semget(time_sem_key, 2, 0);
@@ -73,7 +73,7 @@ int main(int ac, char *av[])
 		// No need to add '\n' in the end of string.
 		tm_str = ctime(&now);
 		len = strlen(tm_str);
-		tm_str[len-1] = '\0';
+		tm_str[len - 1] = '\0';
 		strcpy(memp, tm_str);
 
 		release_lock(semset_id);
@@ -84,7 +84,7 @@ int main(int ac, char *av[])
 	cleanup(0);
 	exit(EXIT_SUCCESS);
 
-error:
+ error:
 	cleanup(0);
 	exit(EXIT_FAILURE);
 }
@@ -108,11 +108,11 @@ static void cleanup(int signum)
 }
 
 union semun {
-   int              val;    /* Value for SETVAL */
-   struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
-   unsigned short  *array;  /* Array for GETALL, SETALL */
-   struct seminfo  *__buf;  /* Buffer for IPC_INFO
-							   (Linux-specific) */
+	int val;		/* Value for SETVAL */
+	struct semid_ds *buf;	/* Buffer for IPC_STAT, IPC_SET */
+	unsigned short *array;	/* Array for GETALL, SETALL */
+	struct seminfo *__buf;	/* Buffer for IPC_INFO
+				   (Linux-specific) */
 };
 
 /*

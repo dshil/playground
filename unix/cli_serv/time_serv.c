@@ -4,9 +4,9 @@
 
 #include "serv.h"
 
-static	int fd = 0;
-static	FILE *fout = NULL;
-static	time_t tm = 0;
+static int fd = 0;
+static FILE *fout = NULL;
+static time_t tm = 0;
 
 int proccess_req(int sock_fd)
 {

@@ -8,8 +8,8 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-static int more(FILE *fin, FILE *tty);
-static size_t linesnum(FILE *tty, int rows);
+static int more(FILE * fin, FILE * tty);
+static size_t linesnum(FILE * tty, int rows);
 static int tty_mode(int mode);
 static int set_signal_handler(void);
 static void set_term_winsz(void);
@@ -23,6 +23,8 @@ static int tty_fileno = 0;
 int main(int ac, char *av[])
 {
 	FILE *tty = fopen("/dev/tty", "r");
+	FILE *fin = NULL;
+
 	if (tty == NULL) {
 		perror("/dev/tty");
 		goto error;
@@ -38,7 +40,6 @@ int main(int ac, char *av[])
 	if (set_signal_handler() == -1)
 		exit(EXIT_FAILURE);
 
-	FILE *fin = NULL;
 	if (ac == 1) {
 		if (more(stdin, tty) == -1) {
 			perror("stdin");
@@ -54,8 +55,8 @@ int main(int ac, char *av[])
 
 			fin = fopen(av[i], "r");
 			if (fin == NULL) {
-				fprintf(stderr, "fopen, err = ");
-				perror(av[i]);
+				fprintf(stderr, "fopen(%s): %s\n", av[i],
+					strerror(errno));
 				goto error;
 			}
 
@@ -63,8 +64,8 @@ int main(int ac, char *av[])
 				goto error;
 
 			if (fclose(fin) == EOF) {
-				fprintf(stderr, "fclose, err = ");
-				perror(av[i]);
+				fprintf(stderr, "fclose(%s): %s\n", av[i],
+					strerror(errno));
 				goto error;
 			}
 		}
@@ -73,37 +74,32 @@ int main(int ac, char *av[])
 	if (tty_mode(1) == -1)
 		goto error;
 
-	if (tty != NULL) {
-		if (fclose(tty) == EOF) {
-			fprintf(stderr, "fclose, err = ");
-			perror("/dev/tty");
-		}
-	}
+	if (tty != NULL)
+		if (fclose(tty) == EOF)
+			fprintf(stderr, "fclose(%s): %s\n", "/dev/tty",
+				strerror(errno));
 
 	exit(EXIT_SUCCESS);
 
-error:
+ error:
 	tty_mode(1);
 
 	if (fin != NULL)
 		if (fclose(fin) == EOF)
 			perror("fclose");
 
-	if (tty != NULL) {
-		if (fclose(tty) == EOF) {
-			fprintf(stderr, "fclose, err = ");
-			perror("/dev/tty");
-		}
-	}
-
+	if (tty != NULL)
+		if (fclose(tty) == EOF)
+			fprintf(stderr, "fclose(%s): %s\n", "/dev/tty",
+				strerror(errno));
 	exit(EXIT_FAILURE);
 }
 
-static int more(FILE *fin, FILE *tty)
+static int more(FILE * fin, FILE * tty)
 {
-	int nl = 0; /* lines number */
-	int c = 0; /* current character */
-	int n = 0; /* lines to display determined by the user */
+	int nl = 0;		/* lines number */
+	int c = 0;		/* current character */
+	int n = 0;		/* lines to display determined by the user */
 
 	// Copy of actual rows number to prevent a race during
 	// a signal handling.
@@ -144,7 +140,7 @@ static int more(FILE *fin, FILE *tty)
 	return 0;
 }
 
-static size_t linesnum(FILE *tty, int rows)
+static size_t linesnum(FILE * tty, int rows)
 {
 	fprintf(stderr, "\033[7m more? \033[m\n");
 	int c = 0;
@@ -181,6 +177,8 @@ static int set_term_settings()
 	if (tcsetattr(tty_fileno, TCSANOW, &attr) == -1) {
 		return -1;
 	}
+
+	return 0;
 }
 
 static int tty_mode(int mode)
@@ -215,8 +213,8 @@ static int tty_mode(int mode)
 
 static int set_signal_handler(void)
 {
-	int sigs[] = {SIGINT, SIGWINCH};
-	const int siglen = sizeof(sigs)/sizeof(int);
+	int sigs[] = { SIGINT, SIGWINCH };
+	const int siglen = sizeof(sigs) / sizeof(int);
 
 	struct sigaction act;
 	act.sa_handler = handle_sig;
@@ -249,22 +247,22 @@ static int set_signal_handler(void)
 static void handle_sig(int signum)
 {
 	switch (signum) {
-		case SIGINT:
-			if (tty_mode(1) == -1)
-				exit(EXIT_FAILURE);
-			exit(EXIT_SUCCESS);
-		case SIGTSTP:
-			if (tty_mode(1) == -1)
-				exit(EXIT_FAILURE);
-			if (raise(signum) != 0)
-				exit(EXIT_FAILURE);
-		case SIGWINCH:
-			set_term_winsz();
-			break;
-		case SIGCONT:
-			if (set_term_settings() == -1)
-				exit(EXIT_FAILURE);
-			break;
+	case SIGINT:
+		if (tty_mode(1) == -1)
+			exit(EXIT_FAILURE);
+		exit(EXIT_SUCCESS);
+	case SIGTSTP:
+		if (tty_mode(1) == -1)
+			exit(EXIT_FAILURE);
+		if (raise(signum) != 0)
+			exit(EXIT_FAILURE);
+	case SIGWINCH:
+		set_term_winsz();
+		break;
+	case SIGCONT:
+		if (set_term_settings() == -1)
+			exit(EXIT_FAILURE);
+		break;
 	}
 }
 

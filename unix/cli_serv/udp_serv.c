@@ -9,8 +9,7 @@
 
 #include "sock.h"
 
-static int
-get_net_addr(char *buf, int sz, int *port, struct sockaddr_in *addr);
+static int get_net_addr(char *buf, int sz, int *port, struct sockaddr_in *addr);
 
 int main(int ac, char *av[])
 {
@@ -32,18 +31,18 @@ int main(int ac, char *av[])
 
 	for (;;) {
 		n = recvfrom(sock_fd, buf, BUFSIZ, 0,
-				(struct sockaddr *) &saddr, &saddrlen);
+			     (struct sockaddr *)&saddr, &saddrlen);
 		if (n <= 0)
 			break;
 
 		buf[n] = '\0';
 		get_net_addr(src_host, MAX_HOST_LEN, &src_port, &saddr);
-		printf("dgram: receive msg=%s from %s:%d\n", buf, src_host, src_port);
+		printf("dgram: receive msg=%s from %s:%d\n", buf, src_host,
+		       src_port);
 	}
 }
 
-static int
-get_net_addr(char *buf, int sz, int *port, struct sockaddr_in *addr)
+static int get_net_addr(char *buf, int sz, int *port, struct sockaddr_in *addr)
 {
 	strncpy(buf, inet_ntoa(addr->sin_addr), sz);
 	*port = ntohs(addr->sin_port);
