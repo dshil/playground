@@ -8,7 +8,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-static int more(FILE *fin, FILE *tty, sigset_t *sigs);
+static int more(FILE *fin, FILE *tty);
 static size_t linesnum(FILE *tty, int rows);
 static int tty_mode(int mode);
 static int set_signal_handler(void);
@@ -38,20 +38,9 @@ int main(int ac, char *av[])
 	if (set_signal_handler() == -1)
 		exit(EXIT_FAILURE);
 
-	sigset_t sigs;
-	if (sigemptyset(&sigs) == -1) {
-		perror("sigemptyset");
-		return -1;
-	}
-
-	if (sigaddset(&sigs, SIGWINCH) == -1) {
-		perror("sigaddset");
-		return -1;
-	}
-
 	FILE *fin = NULL;
 	if (ac == 1) {
-		if ((more(stdin, tty, &sigs)) == -1) {
+		if (more(stdin, tty) == -1) {
 			perror("stdin");
 			goto error;
 		}
@@ -70,7 +59,7 @@ int main(int ac, char *av[])
 				goto error;
 			}
 
-			if (more(fin, tty, &sigs) == -1)
+			if (more(fin, tty) == -1)
 				goto error;
 
 			if (fclose(fin) == EOF) {
@@ -110,7 +99,7 @@ error:
 	exit(EXIT_FAILURE);
 }
 
-static int more(FILE *fin, FILE *tty, sigset_t *sigs)
+static int more(FILE *fin, FILE *tty)
 {
 	int nl = 0; /* lines number */
 	int c = 0; /* current character */
@@ -138,17 +127,7 @@ static int more(FILE *fin, FILE *tty, sigset_t *sigs)
 		if (c == '\n') {
 			nl++;
 
-			if (sigprocmask(SIG_BLOCK, sigs, NULL) == -1) {
-				perror("sigprocmask");
-				return -1;
-			}
-
 			cp_rows = nrows;
-
-			if (sigprocmask(SIG_UNBLOCK, sigs, NULL) == -1) {
-				perror("sigprocmask");
-				return -1;
-			}
 
 			if (nl == cp_rows) {
 				n = linesnum(tty, cp_rows);
