@@ -146,8 +146,8 @@ print_sleep_stat(const char *name,
 		size_t op_num,
 		uint64_t avg)
 {
-	printf("%s, wait(ms): %llu, sleep(ms): %llu, %s(s): %lu, %llu μs/call\n",
-			name, wait_ms, sleep_ms, name, op_num, avg);
+	printf("wait(ms): %llu, sleep(ms): %llu, %s(s): %lu, %llu μs/call\n",
+			wait_ms, sleep_ms, name, op_num, avg);
 }
 
 static void
@@ -195,9 +195,13 @@ test_nanosleep(const char *name, uint64_t total_wait_ms, uint64_t ms)
 	for (;;) {
 		while (nanosleep(&ts, &ts) == -1) {
 			if (errno == EINTR) {
-				// microseconds.
 				rem = (uint64_t) (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+				if (rem == 0)
+					rem = ms;
+
+				// microseconds.
 				avg = ((total_wait_ms - cnt * ms - (ms - rem)) * 1000) / cnt;
+
 				print_sleep_stat(name, total_wait_ms, ms, cnt, avg);
 				exit(EXIT_SUCCESS);
 			} else {
@@ -219,17 +223,15 @@ int main()
 	benchfn(it, test_gettimeofday, "gettimeofday");
 
 	// Test sleeping for a specified interval.
-	const uint64_t wait_interval = 1000 * 10;
+	const uint64_t wait_interval = 1000;
 
 	bench_sleep_for_fn(wait_interval, 1, test_nanosleep, "nanosleep");
 	bench_sleep_for_fn(wait_interval, 2, test_nanosleep, "nanosleep");
 	bench_sleep_for_fn(wait_interval, 10, test_nanosleep, "nanosleep");
 	bench_sleep_for_fn(wait_interval, 100, test_nanosleep, "nanosleep");
-	bench_sleep_for_fn(wait_interval, 1000, test_nanosleep, "nanosleep");
 
 	bench_sleep_for_fn(wait_interval, 1, test_mach_clock_sleep, "clock_sleep");
 	bench_sleep_for_fn(wait_interval, 2, test_mach_clock_sleep, "clock_sleep");
 	bench_sleep_for_fn(wait_interval, 10, test_mach_clock_sleep, "clock_sleep");
 	bench_sleep_for_fn(wait_interval, 100, test_mach_clock_sleep, "clock_sleep");
-	bench_sleep_for_fn(wait_interval, 1000, test_mach_clock_sleep, "clock_sleep");
 }
