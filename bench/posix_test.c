@@ -50,16 +50,21 @@ test_nanosleep(const char *name, uint64_t total_wait_ms, uint64_t ms)
 
 int main()
 {
+	int iterations[] = {1000, 1000000, 5000000};
+	size_t i = 0;
 	size_t it = 2000000;
 
-	// Test receiving current time.
-	benchfn(it, test_gettimeofday, "gettimeofday");
+	for (; i < sizeof(iterations)/sizeof(int); ++i) {
+		benchfn(iterations[i], test_gettimeofday, "gettimeofday");
+	}
 
-	// Test sleeping for a specified interval.
-	const uint64_t wait_interval = 1000;
+	int intervals[] = {1000, 10000, 30000};
+	i = 0;
 
-	bench_sleep_for_fn(wait_interval, 1, test_nanosleep, "nanosleep");
-	bench_sleep_for_fn(wait_interval, 2, test_nanosleep, "nanosleep");
-	bench_sleep_for_fn(wait_interval, 10, test_nanosleep, "nanosleep");
-	bench_sleep_for_fn(wait_interval, 100, test_nanosleep, "nanosleep");
+	for (; i < sizeof(intervals)/sizeof(int); ++i) {
+		bench_sleep_for_fn(intervals[i], 1, test_nanosleep, "nanosleep");
+		bench_sleep_for_fn(intervals[i], 2, test_nanosleep, "nanosleep");
+		bench_sleep_for_fn(intervals[i], 10, test_nanosleep, "nanosleep");
+		bench_sleep_for_fn(intervals[i], 100, test_nanosleep, "nanosleep");
+	}
 }
