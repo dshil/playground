@@ -72,16 +72,20 @@ test_mach_clock_sleep(const char *name, uint64_t total_wait_ms, uint64_t ms)
 
 int main()
 {
+
+	int iterations[] = {1000, 1000000, 5000000};
 	size_t it = 2000000;
 
-	// Test receiving current time.
-	benchfn(it, test_mach_absolute_time, "mach_absolute_time");
-	benchfn(it, test_clock_get_time, "clock_get_time");
+	for (int i = 0; i < sizeof(iterations)/sizeof(int); ++i) {
+		benchfn(iterations[i], test_mach_absolute_time, "mach_absolute_time");
+	}
 
-	uint64_t wait_interval = 1000;
+	int intervals[] = {1000, 10000, 30000};
 
-	bench_sleep_for_fn(wait_interval, 1, test_mach_clock_sleep, "clock_sleep");
-	bench_sleep_for_fn(wait_interval, 2, test_mach_clock_sleep, "clock_sleep");
-	bench_sleep_for_fn(wait_interval, 10, test_mach_clock_sleep, "clock_sleep");
-	bench_sleep_for_fn(wait_interval, 100, test_mach_clock_sleep, "clock_sleep");
+	for (int i = 0; i < sizeof(intervals)/sizeof(int); ++i) {
+		bench_sleep_for_fn(intervals[i], 1, test_mach_clock_sleep, "clock_sleep");
+		bench_sleep_for_fn(intervals[i], 2, test_mach_clock_sleep, "clock_sleep");
+		bench_sleep_for_fn(intervals[i], 10, test_mach_clock_sleep, "clock_sleep");
+		bench_sleep_for_fn(intervals[i], 100, test_mach_clock_sleep, "clock_sleep");
+	}
 }
