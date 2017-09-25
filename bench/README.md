@@ -10,9 +10,13 @@ make osx
 Receiving current time:
 
 ```
-mach_absolute_time, op: 1000, total(ns):      37620, 37 (ns/call)
-mach_absolute_time, op: 1000000, total(ns):   40994990, 40 (ns/call)
-mach_absolute_time, op: 5000000, total(ns):  185909170, 37 (ns/call)
+mach_absolute_time, op: 1000,    total(ns):      70447, 70 (ns/call)
+mach_absolute_time, op: 1000000, total(ns):   42273214, 42 (ns/call)
+mach_absolute_time, op: 5000000, total(ns):  171702951, 34 (ns/call)
+
+clock_get_time    , op: 1000,    total(ns):    2440023, 2440 (ns/call)
+clock_get_time    , op: 1000000, total(ns): 2360947973, 2360 (ns/call)
+clock_get_time    , op: 5000000, total(ns): 11689396590, 2337 (ns/call)
 ```
 
 Sleeping for a specified interval:

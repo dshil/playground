@@ -92,7 +92,7 @@ if (err != KERN_SUCCESS) {
 // We should deallocate port returned by host_get_clock_service, because we no
 // longer need it.
 //
-// You should be very careful with mach ports allocation and deallocation,
+// You should be careful with mach ports allocation and deallocation,
 // because it is usually can a cause ports leak problem.
 err = mach_port_deallocate(mach_task_self(), host_clock);
 if (err != KERN_SUCCESS) {
@@ -170,10 +170,6 @@ We can meet this problem in each previously mentioned functions. As a result
 our "high precision time management" will burn down our performance on frequent
 calls.
 
-There are [benchmarks](LINK) to demonstrate it.
-
-See also: [libuv fight with OS X clock API](https://github.com/joyent/libuv/pull/1325)
-
 OS X seems not to be a good place to deal with a high resolution clock
 management, but let's give them a chance and spend some time to google possible
 solutions. It's a very common task and I can't believe that Apple doesn't make
@@ -193,8 +189,7 @@ per tick, but we shouldn't rely on this fact. Kernel provides a transformation
 factor that can be used to convert abstract Mach time units to nanoseconds.
 
 Is mach_absolute_time fast? [Yes](https://opensource.apple.com/source/Libc/Libc-320.1.3/i386/mach/mach_absolute_time.c).
-It is extremly fast, because it uses [RDTSC](https://en.wikipedia.org/wiki/Time_Stamp_Counter)
-underneath. I hope, that XNU synchronizes this value between multiple cores.
+It is extremly fast, because it uses [RDTSC](https://en.wikipedia.org/wiki/Time_Stamp_Counter) underneath.
 
 Example of receiving current time in nanoseconds using mach_absolute_time.
 
@@ -215,6 +210,19 @@ steady_factor = (double) info.numer / (uint32_t) (info.denom * 1000000);
 uint64_t now_ms = mach_absolute_time() * steady_factor;
 ```
 
+[There is a short example](https://github.com/dshil/playground/tree/master/bench)) demonstrating how `mach_absolute_time` is faster,
+then `clock_get_time`:
+
+```
+mach_absolute_time, op: 1000,    total(ns):      70447, 70 (ns/call)
+mach_absolute_time, op: 1000000, total(ns):   42273214, 42 (ns/call)
+mach_absolute_time, op: 5000000, total(ns):  171702951, 34 (ns/call)
+
+clock_get_time    , op: 1000,    total(ns):    2440023, 2440 (ns/call)
+clock_get_time    , op: 1000000, total(ns): 2360947973, 2360 (ns/call)
+clock_get_time    , op: 5000000, total(ns): 11689396590, 2337 (ns/call)
+```
+
 **Conclusion**
 
 *A glimmer of hope*
@@ -233,11 +241,12 @@ This fight was begun when I tried to make time related operations portable in
 [roc](https://github.com/roc-project/roc).
 
 All benchmarks for time related operations for OS X and Linux can be found
-[here](LINK).
+[here](https://github.com/dshil/playground/tree/master/bench).
 
 Related articles:
 
 - [Monotonic time in Mac OS X](http://web.archive.org/web/20100517095152/http://www.wand.net.nz/~smr26/wordpress/2009/01/19/monotonic-time-in-mac-os-x/comment-page-1/)
+- [libuv fight with OS X clock API](https://github.com/joyent/libuv/pull/1325)
 - [clock_gettime for OS X](http://web.archive.org/web/20100501115556/http://le-depotoir.googlecode.com:80/svn/trunk/misc/clock_gettime_stub.c).
 - [Mach overview](http://web.eecs.utk.edu/~qcao1/cs560/papers/mach.pdf)
 - [OS X kernel guide lines](https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/About/About.html)

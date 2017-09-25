@@ -80,6 +80,10 @@ int main()
 		benchfn(iterations[i], test_mach_absolute_time, "mach_absolute_time");
 	}
 
+	for (int i = 0; i < sizeof(iterations)/sizeof(int); ++i) {
+		benchfn(iterations[i], test_clock_get_time, "clock_get_time");
+	}
+
 	int intervals[] = {1000, 10000, 30000};
 
 	for (int i = 0; i < sizeof(intervals)/sizeof(int); ++i) {
