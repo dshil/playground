@@ -1,4 +1,4 @@
-<h2>Missed OS X clocks guide
+Missed OS X clocks guide
 
 **Introduction**
 
