@@ -224,11 +224,11 @@ clock_get_time    , op: 5000000, total(ns): 11689396590, 2337 (ns/call)
 *A glimmer of hope*
 
 To make people ~~life boring~~ happy, Apple ~~broke all thousands of
-clock_gettime implementations:
+clock_gettime implementations~~:
 - [civetweb](https://github.com/civetweb/civetweb/issues/349)
 - [zeromq](https://github.com/zeromq/libzmq/issues/2175)
 - [xdotool](https://github.com/jordansissel/xdotool/issues/138)
-- and others...~~
+- and others...
 
 introduced `clock_gettime` in OS X Siera, but there aren't any news about
 `clock_nanosleep` introduction.
