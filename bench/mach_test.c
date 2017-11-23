@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
 
 #include <mach/mach.h>      /* host_get_clock_service */
@@ -12,27 +13,16 @@ static uint64_t test_mach_absolute_time(void)
 	return current_time_ns();
 }
 
+clock_serv_t host_clock;
+
 static uint64_t test_clock_get_time(void)
 {
 	kern_return_t ret = KERN_SUCCESS;
-	clock_serv_t host_clock;
-
-	ret = host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &host_clock);
-	if (ret != KERN_SUCCESS) {
-		mach_error("host_get_clock_service: ", ret);
-		exit(EXIT_FAILURE);
-	}
-
     mach_timespec_t now;
+
     ret = clock_get_time(host_clock, &now);
     if (ret != KERN_SUCCESS) {
 		mach_error("clock_get_time: ", ret);
-		exit(EXIT_FAILURE);
-    }
-
-    ret = mach_port_deallocate(mach_task_self(), host_clock);
-    if (ret != KERN_SUCCESS) {
-		mach_error("mach_port_deallocate: ", ret);
 		exit(EXIT_FAILURE);
     }
 
@@ -70,6 +60,32 @@ test_mach_clock_sleep(const char *name, uint64_t total_wait_ms, uint64_t ms)
 	}
 }
 
+static void init_host_clock(void)
+{
+	kern_return_t ret = KERN_SUCCESS;
+
+	ret = host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &host_clock);
+	if (ret != KERN_SUCCESS) {
+		mach_error("host_get_clock_service: ", ret);
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void start_mach_clock_get_time_test(int *iterations, int iter_len)
+{
+	init_host_clock();
+
+	for (int i = 0; i < iter_len; ++i) {
+		benchfn(*iterations++, test_clock_get_time, "clock_get_time");
+	}
+
+	kern_return_t ret = mach_port_deallocate(mach_task_self(), host_clock);
+	if (ret != KERN_SUCCESS) {
+		mach_error("mach_port_deallocate: ", ret);
+		exit(EXIT_FAILURE);
+    }
+}
+
 int main()
 {
 
@@ -80,9 +96,7 @@ int main()
 		benchfn(iterations[i], test_mach_absolute_time, "mach_absolute_time");
 	}
 
-	for (int i = 0; i < sizeof(iterations)/sizeof(int); ++i) {
-		benchfn(iterations[i], test_clock_get_time, "clock_get_time");
-	}
+	start_mach_clock_get_time_test(iterations, sizeof(iterations)/sizeof(int));
 
 	int intervals[] = {1000, 10000, 30000};
 
