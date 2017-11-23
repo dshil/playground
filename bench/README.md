@@ -1,4 +1,4 @@
-<h1>Exploring cost of time related operations.</h1>
+## Exploring cost of time related operations
 
 
 **OSX**
@@ -88,3 +88,6 @@
     | nanosleep     | 30000              | 10                  | 2785            | 769           |
     | nanosleep     | 30000              | 100                 | 297             | 808           |
 
+## License
+
+[MIT](LICENSE)
