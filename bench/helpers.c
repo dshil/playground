@@ -37,7 +37,7 @@ void bench_sleep_for_fn(
 		}
 
 		if (kill(pid, SIGINT) == -1) {
-			perror("kill(SIGTERM)");
+			perror("kill(SIGINT)");
 			exit(EXIT_FAILURE);
 		}
 
