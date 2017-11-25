@@ -26,7 +26,8 @@ static uint64_t test_clock_get_time(void)
 		exit(EXIT_FAILURE);
     }
 
-	return (uint64_t) (now.tv_sec * 10E9 + (now.tv_nsec) / 10E9);
+	return (uint64_t) (now.tv_sec * 10E9 +
+			(now.tv_nsec) % 1000000000);
 }
 
 static void

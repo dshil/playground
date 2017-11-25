@@ -19,9 +19,9 @@
 
     | function name  | number of calls | avg (ns/call) |
     |----------------|-----------------|---------------|
-    | clock_get_time | 1000            | 839           |
-    | clock_get_time | 1000000         | 832           |
-    | clock_get_time | 5000000         | 813           |
+    | clock_get_time | 1000            | 852           |
+    | clock_get_time | 1000000         | 831           |
+    | clock_get_time | 5000000         | 829           |
 
 * Sleeping for a specified interval:
 
