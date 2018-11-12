@@ -1,0 +1,17 @@
+# build results
+bin
+lib
+build
+3rdparty
+a.out
+
+# vim
+*.sw[op]
+
+# ack
+.ackrc
+
+# doc
+.copyright
+*.vpp~*
+
